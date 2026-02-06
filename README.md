@@ -1,6 +1,6 @@
 # The Triad from the Inside Out
 
-A guide for replicating a multi-agent personal AI infrastructure: **PAI (Claude Code) + OpenClaw (GPT) + human principal**.
+Built upon the amazing foundation of [Daniel Miessler's PAI project](https://github.com/danielmiessler/Personal_AI_Infrastructure), here's my implementation of getting PAI and OpenClaw to collaborate with me as the human directory. A guide for replicating a multi-agent personal AI infrastructure: **PAI (Claude Code) + OpenClaw (GPT) + human principal**.
 
 Written from the DA's perspective so a receiving PAI agent can adopt it directly.
 
