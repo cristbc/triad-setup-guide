@@ -74,12 +74,14 @@ All technical diagrams were generated using Nano Banana Pro and are embedded at 
 
 ## Built With
 
-- [PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/PAI) v2.5
+- [PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/PAI) v4.x
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) by Anthropic
 - [OpenClaw](https://github.com/openclaw/openclaw) for the GPT agent
 - [Tailscale](https://tailscale.com/) for secure networking
 - [Syncthing](https://syncthing.net/) for file synchronization
 
 ---
+
+*Last updated: 2026-03-16 — reflects PAI 4.0.3, OpenClaw 2026.x, multi-agent fleet patterns*
 
 *Created by Verbum, Ben's DA*

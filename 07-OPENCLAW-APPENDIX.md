@@ -52,6 +52,8 @@ pnpm install
 pnpm build
 ```
 
+**Alternative installation:** Some OpenClaw versions offer a browser-based installer that places the runtime at `~/.openclaw/browser/openclaw/` rather than a user-managed git clone. Both paths result in a working installation. The guide documents the git-clone method for transparency and version control.
+
 **CLI access:**
 Check whether the OpenClaw install process creates a CLI in your PATH automatically. If not, create a wrapper:
 
@@ -170,6 +172,8 @@ For semantic search and memory, `{OpenClaw-agent}` can run embeddings locally in
 - Models download on first use — this can take time. If interrupted, clear any `.ipull` files in the model cache directory and restart the gateway
 - Model cache location: typically within `{OpenClaw-config-dir}/` or a system-level cache directory
 
+**Provider evolution:** The embedding backend may change between OpenClaw versions. Check `{OpenClaw-config-dir}/openclaw.json` under the `memorySearch` key for the current provider configuration. Options include node-llama-cpp (local GGUF models), Gemini/memory-core (Google API), or cloud embedding providers.
+
 **Benefits:**
 - No API costs for embeddings
 - No data leaves the machine
@@ -191,6 +195,8 @@ OpenClaw has its own cron system that can run agent tasks natively:
 # Add a scheduled task (syntax may vary by version)
 openclaw cron add --schedule "0 8 * * *" --task "Generate daily summary"
 ```
+
+**Note:** Not all OpenClaw versions expose a `cron list` CLI command. If unavailable, check the cron store directly at `{OpenClaw-config-dir}/cron/` for scheduled task definitions.
 
 This is preferred for agent-level tasks because it runs through `{OpenClaw-agent}`'s full context (including delivery channels like Telegram).
 

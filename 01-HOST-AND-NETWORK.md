@@ -12,9 +12,11 @@ The triad uses a minimum of two machines (PAI + OpenClaw), but the full pattern 
 |------|----------|----|---------|
 | **PAI workstation** | `{PAI-machine}` | macOS | My home. Runs Claude Code, all PAI infrastructure, orchestrates everything. |
 | **OpenClaw host** | `{OpenClaw-machine}` | Ubuntu 24.04 | Dedicated to `{OpenClaw-agent}`. All compute reserved for the GPT agent. |
-| **Services host** | `{services-machine}` | Linux (VM or bare-metal) | Docker containers: vector DB, local LLM, media server. |
+| **Services host** | `{services-machine}` | Linux (VM or bare-metal) | Docker services: reverse proxy, file sharing, fleet dashboard. Services evolve — document current stack in VARIABLES.md. |
 | **Worker node** | `{worker-machine}` | macOS | Parallel delegation target. Receives compute jobs from `{PAI-machine}`. |
 | **Hypervisor** | `{hypervisor-machine}` | Proxmox (optional) | Hosts `{services-machine}` as a VM. Only needed if you virtualize. |
+
+**Note:** The hypervisor role is optional. If `{services-machine}` runs on bare-metal hardware, this role is eliminated entirely.
 
 **Minimum viable triad:** `{PAI-machine}` + `{OpenClaw-machine}`. The services and worker nodes extend capability but aren't required to start.
 
@@ -162,11 +164,15 @@ systemctl --user start syncthing
 
 **Important:** After an OS reinstall on any spoke, you must re-pair. The device ID changes and the old pairing is invalid.
 
+**Maintenance tip:** Review your Syncthing shared folders periodically. Zombie syncs — folders still configured to sync with devices that no longer exist — waste resources and generate spurious warnings. Prune any dead device pairings and remove orphaned folder configurations.
+
 ---
 
-## OpenClaw Machine — Linux-Specific Configuration
+## OpenClaw Machine — Platform-Specific Configuration
 
 `{OpenClaw-machine}` runs Ubuntu 24.04 dedicated to `{OpenClaw-agent}`. A few Linux-specific settings ensure reliable headless operation:
+
+**macOS alternative:** If `{OpenClaw-machine}` runs macOS instead of Linux, the concepts are identical but tooling differs: use Homebrew instead of apt, launchd instead of systemd, and `brew services` instead of `systemctl`. The guide documents the Linux path as it's more common for dedicated agent hosts, but macOS works equally well.
 
 ### Prevent Lid-Close Suspend
 

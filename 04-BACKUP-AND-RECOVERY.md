@@ -299,7 +299,7 @@ Four scenarios, ordered by likelihood. Each includes the steps to get back to op
 
 ### Scenario 3: `{services-machine}` Failure
 
-**Situation:** The Docker services host is down. This affects backup storage, containerized services (vector DB, local LLM, media server), but not core agent operations.
+**Situation:** The Docker services host is down. This affects backup storage, containerized services (reverse proxy, fleet dashboard, and any active Docker stack), but not core agent operations.
 
 **Recovery source:** `{Sync-services-dir}` on `{PAI-machine}` + container image registries
 
@@ -424,6 +424,7 @@ After setting up the backup infrastructure, confirm:
 - [ ] Test Time Machine restore: recover a single file to verify the backup is valid
 - [ ] Offsite drive rotation schedule set (monthly calendar reminder)
 - [ ] Each disaster recovery runbook reviewed and understood by `{principal}`
+- [ ] Spot-check that backup archives are actually being created — a silent backup failure is worse than no backup at all. Verify file dates and sizes, not just that the cron/timer is loaded.
 
 ---
 

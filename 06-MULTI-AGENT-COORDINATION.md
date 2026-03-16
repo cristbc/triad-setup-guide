@@ -20,6 +20,24 @@ The triad isn't hierarchical in a strict sense — `{principal}` has authority, 
 
 ---
 
+## Scaling Beyond Two Agents
+
+The triad pattern is a starting point, not a ceiling. Additional agents can join the system on new machines or as separate user accounts on shared hardware.
+
+Each new agent needs three things:
+
+| Requirement | Purpose | Example |
+|-------------|---------|---------|
+| Machine or user account | Compute and filesystem isolation | New macOS user on an existing Mac Mini |
+| Communication channel | How `{PAI-agent}` reaches the new agent | A dedicated channel skill (modeled on the inter-agent channel tool) |
+| Identity documents | Who the agent is and how it behaves | Soul docs in a synced directory |
+
+The coordination anti-patterns from the table below apply regardless of agent count — in fact, they become more important as the fleet grows. With 4+ agents, explicit ownership of files and areas is essential to prevent conflicts.
+
+**Naming each agent's channel skill** (e.g., `{agent-name}-channel`) keeps tool invocation unambiguous. Each channel skill encapsulates connection details, fallback logic, and message formatting for that specific agent.
+
+---
+
 ## Delegation Patterns
 
 ### {PAI-agent} → {OpenClaw-agent}
@@ -139,6 +157,16 @@ Create job JSON → Sync to worker → Worker detects job →
 Execute with specified backend → Write output → Sync output back →
 PAI agent reads result
 ```
+
+### Alternative: Direct Execution
+
+Claude Code's native Agent tool and SSH-based direct command execution have emerged as alternatives to the Syncthing job dispatch pattern. For tasks where the result is needed immediately, SSH execution is faster:
+
+```bash
+ssh {worker-machine} "claude --print 'Summarize this file' < /path/to/file"
+```
+
+The Syncthing-based pattern remains valuable for offline or asynchronous workloads where the worker may not be immediately reachable.
 
 ### When to Use the Worker
 - Parallel research across multiple AI backends

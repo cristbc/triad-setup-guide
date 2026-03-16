@@ -2,6 +2,8 @@
 
 A step-by-step guide for a receiving PAI agent (or human) to stand up the full triad. Each phase has a verification gate — don't proceed until the gate passes.
 
+**Note:** This checklist covers the minimum viable triad (2 agents). To add more agents, repeat Phases 5-6 for each additional agent, creating a dedicated communication channel and identity configuration per agent.
+
 ---
 
 ## Phase 0: Prerequisites

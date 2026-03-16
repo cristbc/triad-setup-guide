@@ -20,7 +20,7 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 |----------|---------|---------|
 | `{PAI-machine}` | Primary workstation hostname running PAI/Claude Code | <!-- sedes --> |
 | `{OpenClaw-machine}` | Secondary machine hosting OpenClaw agent | <!-- ariel --> |
-| `{services-machine}` | Docker services host (Plex, Qdrant, Ollama, etc.) | <!-- oikos --> |
+| `{services-machine}` | Docker services host (reverse proxy, file sharing, fleet dashboard) | <!-- oikos --> |
 | `{worker-machine}` | Parallel delegation worker for compute-heavy tasks | <!-- ccmini --> |
 | `{hypervisor-machine}` | Proxmox hypervisor (if using VMs for services) | <!-- lenovo-bm --> |
 
@@ -104,9 +104,7 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 
 | Variable | Purpose | Example |
 |----------|---------|---------|
-| `{ollama-port}` | Ollama API port | `11434` |
-| `{qdrant-port}` | Qdrant vector DB port | `6333` |
-| `{plex-port}` | Plex media server port | `32400` |
+| | Service-specific port variables depend on your deployment. Define them as needed for your Docker stack. | |
 | `{PAI-dir}` | PAI home directory | `~/.claude` |
 | `{PAI-Dir}` | PAI home directory (alternate casing) | `~/.claude` |
 | `{PAI-dir-basename}` | PAI directory basename only | `.claude` |
@@ -142,10 +140,10 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 
 | Variable | Purpose | Current |
 |----------|---------|---------|
-| `{PAI-version}` | PAI framework version | `2.5` |
-| `{Algorithm-version}` | Algorithm version | `0.2.25` |
+| `{PAI-version}` | PAI framework version | `4.0.3` |
+| `{Algorithm-version}` | Algorithm version | `v3.5.0` |
 | `{PAI-repo}` | PAI source repository | `github.com/danielmiessler/PAI` |
-| `{OpenClaw-version}` | OpenClaw version tag | Latest stable tag |
+| `{OpenClaw-version}` | OpenClaw version tag | Date-based (e.g., `2026.3.13`) |
 
 ---
 
