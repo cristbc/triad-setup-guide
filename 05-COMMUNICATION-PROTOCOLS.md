@@ -55,14 +55,18 @@ When `{principal}` is away from the terminal, I can still reach them. I send a m
 
 ### Channel 3: `{principal}` to `{OpenClaw-agent}` (Mobile via Telegram)
 
-This channel is independent of me. `{principal}` messages `{OpenClaw-agent}` directly through the Telegram bot — `{telegram-bot}`. I don't need to be running, and I don't see these messages unless `{OpenClaw-agent}` tells me about them.
+This channel is independent of me. `{principal}` messages `{OpenClaw-agent}` directly through the Telegram bot. Access is restricted via a pairing/allowlist policy to ensure only authorized operators can trigger the agent.
 
 **How it works:**
-- `{principal}` opens Telegram and messages `{telegram-bot}`
-- `{OpenClaw-agent}` receives the message through its Telegram bot integration
-- `{OpenClaw-agent}` processes it and responds directly in the Telegram chat
+- `{principal}` opens Telegram and messages the bot.
+- `{OpenClaw-agent}` verifies the sender ID against the allowlist (`groupAllowFrom` / `dmPolicy=pairing`).
+- `{OpenClaw-agent}` processes it and responds directly in the Telegram chat.
 
 **Key characteristic:** This channel gives `{principal}` **mobile access to `{OpenClaw-agent}` without needing a terminal.** It's the phone-in-pocket interface to the triad.
+
+**Heartbeat:**
+- The agent is configured to send a **heartbeat every 60 minutes**.
+- Heartbeats are delivered to the primary Telegram group (e.g., topic 8) using model `{Heartbeat-model}`.
 
 **Primary uses:**
 - `{principal}` querying `{OpenClaw-agent}` from their phone
@@ -74,24 +78,24 @@ This channel is independent of me. `{principal}` messages `{OpenClaw-agent}` dir
 
 ### Channel 4: File Exchange (Syncthing)
 
-Some things don't fit through a WebSocket message — large files, images, datasets, configuration archives. For these, I use the bidirectional Syncthing folder `{Sync-OpenClaw-dir}`.
+Some things don't fit through a WebSocket message — large files, images, datasets, configuration archives. For these, I use the bidirectional Syncthing folder `~/PAI-orphu`.
 
 **How it works:**
-- I write a file to `{Sync-OpenClaw-dir}` on `{PAI-machine}`
-- Syncthing detects the change and pushes it to `{OpenClaw-machine}`
-- `{OpenClaw-agent}` finds the file in its local copy of the shared folder
-- The reverse works identically for files `{OpenClaw-agent}` sends to me
+- I write a file to `~/PAI-orphu` on `{PAI-machine}`.
+- Syncthing detects the change and pushes it to `{OpenClaw-machine}`.
+- `{OpenClaw-agent}` finds the file in its local copy of the shared folder.
+- The reverse works identically for files `{OpenClaw-agent}` sends to me.
 
 **Key characteristic:** This is **asynchronous and size-unlimited** (within disk constraints). Near-instant on LAN, slight delay over Tailscale. Files persist until explicitly cleaned up.
 
-**Structured directories within `{Sync-OpenClaw-dir}`:**
+**Structured directories within `~/PAI-orphu`:**
 
 | Directory | Purpose | Direction |
 |-----------|---------|-----------|
-| `to-{OpenClaw-agent-lowercase}/` | Files I send to `{OpenClaw-agent}` | `{PAI-agent}` -> `{OpenClaw-agent}` |
-| `from-{OpenClaw-agent-lowercase}/` | Files `{OpenClaw-agent}` sends to me | `{OpenClaw-agent}` -> `{PAI-agent}` |
-| `backups/` | OpenClaw backup archives | `{OpenClaw-agent}` -> `{PAI-agent}` |
-| `shared/` | Shared reference materials | Bidirectional |
+| `to-orphu/` | Files I send to `{OpenClaw-agent}` | `{PAI-agent}` -> `{OpenClaw-agent}` |
+| `from-orphu/` | Files `{OpenClaw-agent}` sends to me | `{OpenClaw-agent}` -> `{PAI-agent}` |
+| `clawd/backups/` | OpenClaw backup archives | `{OpenClaw-agent}` -> `{PAI-agent}` |
+| `clawd/shared/` | Shared reference materials | Bidirectional |
 
 **Primary uses:**
 - Sending large artifacts (generated files, images, datasets)

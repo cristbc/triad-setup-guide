@@ -6,48 +6,42 @@
 
 ## Section 1: Machine Preparation
 
-`{OpenClaw-machine}` should be a dedicated Linux host. A repurposed laptop works well — all compute goes to `{OpenClaw-agent}`.
+`{OpenClaw-machine}` should be a dedicated host. A repurposed macOS machine (e.g., ccmini4) works well — all compute goes to `{OpenClaw-agent}`.
 
-**Base OS:** Ubuntu 24.04 LTS (server or desktop, headless operation either way)
+**Base OS:** macOS (latest stable)
 
 **Post-install essentials:**
-```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y git curl wget build-essential \
-  openssh-server ufw jq htop tmux fontconfig ripgrep
-```
+- Homebrew
+- Xcode Command Line Tools
+- git, curl, ripgrep, jq, tmux
 
-**Node.js (via nvm):**
+**Node.js (via nvm or brew):**
 ```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-source ~/.bashrc
-nvm install 22  # Pin to OpenClaw's recommended Node major version
+brew install nvm
+nvm install 25  # Pin to current working version
 ```
 
 **pnpm (required — OpenClaw uses pnpm, not npm):**
 ```bash
-corepack enable
-corepack prepare pnpm@latest --activate
-# If the repo specifies a packageManager version, match it
+brew install pnpm
 ```
 
 **Headless configuration:**
-- Disable lid-close suspend (see 01-HOST-AND-NETWORK.md)
+- Disable sleep on lid close / system sleep
 - Configure static IP or DHCP reservation
-- Enable SSH: `sudo systemctl enable ssh`
-- Configure firewall: `sudo ufw allow ssh && sudo ufw enable`
+- Enable SSH: System Settings → General → Sharing → Remote Login
 
 ---
 
 ## Section 2: OpenClaw Installation
 
-OpenClaw is installed from source, not as a global npm package:
+OpenClaw is installed from source:
 
 ```bash
 cd ~
 git clone https://github.com/openclaw/openclaw.git {OpenClaw-install-dir}
 cd {OpenClaw-install-dir}
-git checkout v{OpenClaw-version}  # Use latest stable tag
+git checkout v2026.3.13  # Current stable
 pnpm install
 pnpm build
 ```
@@ -164,15 +158,13 @@ Telegram gives `{principal}` mobile access to `{OpenClaw-agent}` independent of 
 
 ## Section 6: Local Embeddings
 
-For semantic search and memory, `{OpenClaw-agent}` can run embeddings locally instead of calling a cloud API.
+For semantic search and memory, `{OpenClaw-agent}` can run embeddings locally or use a cloud API.
 
-**Setup:**
-- OpenClaw supports local embedding models via node-llama-cpp
-- Configure in `{OpenClaw-config-dir}/openclaw.json`: set embeddings provider to `local` and specify the model (e.g., a GGUF-quantized embedding model)
-- Models download on first use — this can take time. If interrupted, clear any `.ipull` files in the model cache directory and restart the gateway
-- Model cache location: typically within `{OpenClaw-config-dir}/` or a system-level cache directory
+**Current Configuration:**
+- The triad is currently configured to use **Gemini** embeddings for memory search.
+- Local embedding models (via node-llama-cpp) may be present in `~/.node-llama-cpp/` but are currently secondary to the Gemini backend.
 
-**Provider evolution:** The embedding backend may change between OpenClaw versions. Check `{OpenClaw-config-dir}/openclaw.json` under the `memorySearch` key for the current provider configuration. Options include node-llama-cpp (local GGUF models), Gemini/memory-core (Google API), or cloud embedding providers.
+**Provider evolution:** The embedding backend may change between OpenClaw versions. Check `{OpenClaw-config-dir}/openclaw.json` under the `memorySearch` key for the current provider configuration.
 
 **Benefits:**
 - No API costs for embeddings
