@@ -377,34 +377,29 @@ Four scenarios, ordered by likelihood. Each includes the steps to get back to op
 
 ## OpenClaw Backup Specifics
 
-`{OpenClaw-agent}`'s state is spread across several locations on `{OpenClaw-machine}`. My backup script captures all of them into a single timestamped archive:
+`{OpenClaw-agent}`'s state is backed up using the native `openclaw backup` command. This captures everything required to restore the agent's state into a single timestamped archive.
 
-### What the Backup Script Captures
+### What is Captured
 
-| Component | Path | Why It Matters |
-|-----------|------|---------------|
-| OpenClaw configuration | `{OpenClaw-config-dir}` | Agent settings, gateway config, API keys |
-| systemd service files | `~/.config/systemd/user/` | Service definitions for gateway, bot, tasks |
-| SSH authorized keys | `~/.ssh/authorized_keys` | Allows `{PAI-machine}` to connect |
-| Soul documents | `{soul-docs-dir}` | Agent identity, personality, behavioral rules |
-| Scheduled tasks | Crontab or systemd timers | Recurring jobs the agent runs |
+The `openclaw backup create` command includes:
+- **Workspace:** `{OpenClaw-workspace-dir}` (usually `~/clawd`)
+- **State:** `{OpenClaw-config-dir}` (usually `~/.openclaw`) containing credentials, sessions, and configuration.
 
-### Archive Format
+### LaunchAgent Configuration (macOS)
 
-```
-openclaw-backup-YYYY-MM-DD-HHMMSS.tar.gz
-```
+The backup is scheduled via a user LaunchAgent:
 
-### Where It Goes
+- **Label:** `com.ccfleet.openclaw-backup`
+- **Schedule:** Sunday at 03:15 weekly.
+- **Command:** `openclaw backup create --output ~/Backups --verify`
 
-The archive is written to `{Sync-OpenClaw-dir}/backups/` on `{OpenClaw-machine}`. Because `{Sync-OpenClaw-dir}` is a bidirectional Syncthing folder, the archive automatically syncs to `{PAI-machine}`. This means I always have a copy of `{OpenClaw-agent}`'s backup on my own machine, even if `{OpenClaw-machine}` dies.
+### Retention
 
-### When to Run
+The LaunchAgent also handles cleanup, deleting any `*.tar.gz` files in `~/Backups` older than 28 days.
 
-- **Before any OpenClaw update** (new version, config change)
-- **Before any OS change** (system update, package upgrade)
-- **Periodically** via cron or systemd timer (daily recommended)
-- **Before hardware changes** (moving to new machine, disk swap)
+### Syncing
+
+The `~/Backups` directory should be configured as a Syncthing folder (or nested within one) to ensure distributed copies exist across the triad.
 
 ---
 

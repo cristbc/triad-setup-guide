@@ -11,7 +11,7 @@ The triad uses a minimum of two machines (PAI + OpenClaw), but the full pattern 
 | Role | Variable | OS | Purpose |
 |------|----------|----|---------|
 | **PAI workstation** | `{PAI-machine}` | macOS | My home. Runs Claude Code, all PAI infrastructure, orchestrates everything. |
-| **OpenClaw host** | `{OpenClaw-machine}` | Ubuntu 24.04 | Dedicated to `{OpenClaw-agent}`. All compute reserved for the GPT agent. |
+| **OpenClaw host** | `{OpenClaw-machine}` | macOS | Dedicated to `{OpenClaw-agent}`. All compute reserved for the GPT agent. |
 | **Services host** | `{services-machine}` | Linux (VM or bare-metal) | Docker services: reverse proxy, file sharing, fleet dashboard. Services evolve — document current stack in VARIABLES.md. |
 | **Worker node** | `{worker-machine}` | macOS | Parallel delegation target. Receives compute jobs from `{PAI-machine}`. |
 | **Hypervisor** | `{hypervisor-machine}` | Proxmox (optional) | Hosts `{services-machine}` as a VM. Only needed if you virtualize. |
@@ -131,7 +131,7 @@ Syncthing provides real-time, peer-to-peer file synchronization over LAN. I use 
 
 | Folder Name | Path on Hub | Synced With | Direction | Purpose |
 |------------|-------------|-------------|-----------|---------|
-| `PAI-{OpenClaw-suffix}` | `~/{Sync-OpenClaw-dir}` | `{OpenClaw-machine}` | Bidirectional | File exchange + soul docs |
+| `PAI-orphu` | `~/PAI-orphu` | `{OpenClaw-machine}` | Bidirectional | File exchange + soul docs |
 | `PAI-{worker-suffix}` | `~/{Sync-worker-dir}` | `{worker-machine}` | Bidirectional | Job dispatch + output retrieval |
 | `PAI-{services-suffix}` | `~/{Sync-services-dir}` | `{services-machine}` | Bidirectional | Service config exchange |
 | `PAI` | `~/PAI` | `{services-machine}` | Send only | Framework backup (read-only mirror) |
@@ -170,47 +170,17 @@ systemctl --user start syncthing
 
 ## OpenClaw Machine — Platform-Specific Configuration
 
-`{OpenClaw-machine}` runs Ubuntu 24.04 dedicated to `{OpenClaw-agent}`. A few Linux-specific settings ensure reliable headless operation:
+`{OpenClaw-machine}` runs macOS dedicated to `{OpenClaw-agent}`.
 
-**macOS alternative:** If `{OpenClaw-machine}` runs macOS instead of Linux, the concepts are identical but tooling differs: use Homebrew instead of apt, launchd instead of systemd, and `brew services` instead of `systemctl`. The guide documents the Linux path as it's more common for dedicated agent hosts, but macOS works equally well.
+### Gateway Access
 
-### Prevent Lid-Close Suspend
+The OpenClaw gateway is configured for loopback-only access to preserve the security boundary.
 
-If using a laptop as the OpenClaw host, disable suspend on lid close:
+- **Bind:** `127.0.0.1`
+- **Port:** `18790`
+- **Dashboard:** `http://127.0.0.1:18790/`
 
-```
-# /etc/systemd/logind.conf
-HandleLidSwitch=ignore
-HandleLidSwitchExternalPower=ignore
-HandleLidSwitchDocked=ignore
-```
-
-Then: `sudo systemctl restart systemd-logind`
-
-### Network (Headless Ethernet)
-
-For a headless server installation, you may prefer systemd-networkd + netplan. If running Ubuntu Desktop, NetworkManager works fine — skip this section. Example netplan config:
-
-```yaml
-# /etc/netplan/01-ethernet.yaml
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    {ethernet-interface}:
-      dhcp4: true
-      # Or static:
-      # addresses: [{OpenClaw-LAN-IP}/24]
-      # routes:
-      #   - to: default
-      #     via: {gateway-IP}
-```
-
-Apply: `sudo netplan apply`
-
-### Disk Encryption
-
-Consider LUKS full-disk encryption for the OpenClaw machine, especially if it's a repurposed laptop. This protects `{OpenClaw-agent}`'s data at rest if the machine is lost or stolen.
+Access from `{PAI-machine}` is typically brokered via the agentic communication layer or SSH tunneling if manual dashboard access is required.
 
 ---
 

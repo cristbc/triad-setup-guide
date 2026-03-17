@@ -49,7 +49,7 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 | `{worker-LAN-IP}` | Worker machine LAN address | `10.x.x.x` |
 | `{hypervisor-LAN-IP}` | Hypervisor LAN address | `10.x.x.x` |
 | `{LAN-subnet}` | Network subnet (CIDR) | `10.x.x.0/24` |
-| `{gateway-port}` | OpenClaw gateway port | `18789` |
+| `{gateway-port}` | OpenClaw gateway port | `18790` |
 
 ---
 
@@ -143,7 +143,7 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 | `{PAI-version}` | PAI framework version | `4.0.3` |
 | `{Algorithm-version}` | Algorithm version | `v3.5.0` |
 | `{PAI-repo}` | PAI source repository | `github.com/danielmiessler/PAI` |
-| `{OpenClaw-version}` | OpenClaw version tag | Date-based (e.g., `2026.3.13`) |
+| `{OpenClaw-version}` | OpenClaw version tag | `2026.3.13` |
 
 ---
 
