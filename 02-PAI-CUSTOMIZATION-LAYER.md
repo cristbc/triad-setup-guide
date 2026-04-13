@@ -1,6 +1,6 @@
 # 02 --- PAI Customization Layer
 
-This document describes what I customize beyond stock PAI v2.5. PAI provides the Algorithm, the hook lifecycle, the skill system, and the agent framework out of the box. Everything below is what I layer on top to make it mine.
+This document describes what I customize beyond stock PAI `{PAI-version}`. PAI provides the Algorithm (currently `{Algorithm-version}`), the hook lifecycle, the skill system, and the agent framework out of the box. Everything below is what I layer on top to make it mine.
 
 ---
 
@@ -56,6 +56,8 @@ I use this to address my principal by name and to format timestamps correctly.
 
 Every path I reference derives from these two roots. Hooks, tools, and skills all resolve paths relative to `{PAI-Dir}`.
 
+**A note on naming:** The `environment` block uses **underscored** shell-style names (`PAI_DIR`, `PROJECTS_DIR`) because these become environment variables at runtime — conventional POSIX shell variables don't accept hyphens. Elsewhere in the guide, **hyphenated** template variables (`{PAI-Dir}`, `{Projects-Dir}`) are used for template substitution. These are two different namespaces: the underscored form is a real shell variable your tooling can `echo $PAI_DIR` on; the hyphenated form is a placeholder that gets substituted into documentation text.
+
 ### Tech Stack Preferences
 
 ```json
@@ -95,10 +97,13 @@ When I build anything, I reach for these defaults. The language preference gover
 
 When a session starts, the following load automatically:
 
-1. **SKILL.md** (the core Algorithm definition and routing table)
-2. **AI Steering Rules** (SYSTEM + USER, concatenated)
-3. **DAIDENTITY.md** (my personality and voice configuration)
-4. **MEMORY.md** (session memory and project-level context)
+1. **CLAUDE.md** (`{PAI-Dir}/CLAUDE.md`) — the runtime entry point that Claude Code loads on every session. Defines mode classification (NATIVE / ALGORITHM / MINIMAL), output format requirements, and the pointer to the Algorithm file
+2. **The Algorithm** (`{PAI-framework-dir}/Algorithm/{Algorithm-version}.md`) — loaded by CLAUDE.md when ALGORITHM mode is selected. Defines the 7-phase OBSERVE→LEARN execution model, ISC decomposition methodology, capability invocation rules, and effort tiers
+3. **AI Steering Rules** — `SYSTEM/AISTEERINGRULES.md` (universal, force-loaded) + `USER/AISTEERINGRULES.md` (personal overrides), concatenated at runtime
+4. **DAIDENTITY.md** (`{PAI-Dir}/USER/DAIDENTITY.md`) — my personality, voice configuration, and pronoun rules
+5. **MEMORY.md** — auto-loaded persistent memory, indexed by topic-specific memory files in the same directory
+
+Per-skill `SKILL.md` files are *not* loaded at session start — they live inside `{PAI-Dir}/skills/{Skill-Name}/SKILL.md` and load on demand when their trigger phrases fire. Don't conflate the per-skill `SKILL.md` (a routing manifest for one skill) with CLAUDE.md (the global entry point) or with the Algorithm file (the execution model).
 
 These give me everything I need to operate from the first token.
 
@@ -131,7 +136,7 @@ skills/{Skill-Name}/
 
 ### Skill Customizations
 
-When I want to modify a stock skill's behavior without forking it, I place overrides in `USER/SKILLCUSTOMIZATIONS/`. These extend or replace specific workflows within a skill while leaving the skill's core intact. This keeps my customizations separate from upstream updates.
+When I want to modify a stock skill's behavior without forking it, I place overrides at `{PAI-Dir}/skills/PAI/USER/SKILLCUSTOMIZATIONS/{Skill-Name}/`. The skill itself reads this directory at the top of its execution flow — any `PREFERENCES.md`, configuration files, or replacement workflows found there override the stock behavior. This keeps my customizations separate from upstream updates so I can pull new versions of stock skills without losing my overrides.
 
 ### Key Skills I Use
 
@@ -151,17 +156,19 @@ Each skill can invoke other skills. Research might feed into Development. Agents
 
 Hooks are the event-driven backbone of my customization layer. They fire at specific lifecycle points and run asynchronously --- they never block the main conversation.
 
-### All Six Lifecycle Events
+### Lifecycle Events I Use
 
-| Event | When It Fires | What I Use It For |
-|-------|---------------|-------------------|
-| **SessionStart** | Session begins | Startup voice announcement, load identity, initialize state |
-| **Stop** | Response generation completes | Orchestrated post-response processing (voice, capture, tab state) |
-| **UserPromptSubmit** | User sends a message | Format reminder with AI-powered depth classification, skill hints |
-| **SessionEnd** | Session terminates | Session summary, cleanup, learning capture |
-| **PreToolUse** | Before any tool executes | SecurityValidator (on Bash, Edit, Write, Read) |
-| **PostToolUse** | After any tool executes | Logging, state updates |
-| **SubagentStop** | Subagent completes | Result capture, agent coordination |
+The following Claude Code hook events drive my customization layer. Other events (e.g., `Notification`, `PreCompact`) exist in the harness but I have not wired anything to them — I document only what I actually use. Of the events below, five are required for the core behavior to work (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop); SubagentStop and SessionEnd are useful enhancements but the system still functions without them.
+
+| Event | When It Fires | Required? | What I Use It For |
+|-------|---------------|-----------|-------------------|
+| **SessionStart** | Session begins | Required | Startup voice announcement, load identity, initialize state |
+| **UserPromptSubmit** | User sends a message | Required | Format reminder with AI-powered depth classification, skill hints |
+| **PreToolUse** | Before any tool executes | Required | SecurityValidator (on Bash, Edit, Write, Read) |
+| **PostToolUse** | After any tool executes | Required | Logging, state updates, PRD frontmatter sync |
+| **SubagentStop** | Subagent completes | Optional | Result capture, agent coordination |
+| **Stop** | Response generation completes | Required | Orchestrated post-response processing (voice, capture, tab state) |
+| **SessionEnd** | Session terminates | Optional | Session summary, cleanup, learning capture |
 
 ### Key Hook Implementations
 
@@ -171,8 +178,8 @@ Runs before every Bash, Edit, Write, and Read invocation. Evaluates the tool cal
 **FormatReminder (UserPromptSubmit)**
 Uses AI inference (standard tier) to classify every incoming prompt into a depth level (FULL, ITERATION, MINIMAL). Also suggests capabilities, skills, and thinking tools as draft hints for the Algorithm's two-pass selection process. Its depth classification is authoritative --- I do not override it.
 
-**AutoWorkCreation (SessionStart)**
-Automatically creates WORK tracking entries when a session begins with a task. Ensures every meaningful session has a corresponding work record.
+**PRD Lifecycle Hooks (SessionStart + PostToolUse)**
+The Algorithm uses a PRD (Product Requirements Document) per task, written by me directly into `{PAI-Dir}/MEMORY/WORK/{slug}/PRD.md` during the OBSERVE phase. SessionStart hooks surface the registry of in-flight PRDs so I can resume; a read-only PostToolUse hook (PRDSync) syncs the PRD's frontmatter and ISC checkboxes into a JSON registry at `{PAI-Dir}/MEMORY/STATE/work.json` for the dashboard. **Hooks never write to PRD.md — I am the sole writer.** Every phase transition, every criterion check, every progress update is my responsibility via Edit/Write tools directly.
 
 **Rating Capture (Stop)**
 Captures both explicit ratings (when my principal says a number 1--10) and implicit sentiment ratings (inferred from response tone and engagement). These feed into the LEARNING system for continuous improvement.
@@ -265,13 +272,13 @@ My memory is organized into purpose-specific directories under `{PAI-Dir}/MEMORY
 
 | Directory | Purpose | Written By |
 |-----------|---------|------------|
-| **WORK/** | Task tracking --- one file per active task with status, ISC criteria, and progress | AutoWorkCreation hook, manual updates |
+| **WORK/{slug}/** | Task tracking — one *directory* per task containing `PRD.md` (frontmatter + Context, Criteria, Decisions, Verification sections) and any task-specific artifacts | Me directly via Edit/Write during the Algorithm's 7 phases |
 | **LEARNING/** | Categorized learnings from sessions | SessionEnd hook, rating capture |
 | **LEARNING/SYSTEM/** | System-level learnings (PAI behavior, hooks, infrastructure) | Hooks |
 | **LEARNING/ALGORITHM/** | Algorithm execution learnings (what depth was right, what was missed) | Hooks |
 | **LEARNING/FAILURES/** | Post-mortems on what went wrong | Manual capture |
 | **LEARNING/SIGNALS/** | Rating data --- explicit scores and implicit sentiment | Rating capture hook |
-| **STATE/** | Runtime state --- caches, current work pointer, location, weather | Various hooks |
+| **STATE/** | Runtime state — `work.json` registry (synced from PRDs by a read-only hook), caches, location, weather | Hooks (read-only with respect to PRD content) |
 | **RESEARCH/** | Captured output from research agents and subagents | SubagentStop hook |
 
 ### How Memory Flows
@@ -345,18 +352,22 @@ The naming of a DA carries intentional weight. My principal chose my name with p
 
 Before considering the customization layer complete, verify each item:
 
+- [ ] `CLAUDE.md` exists at `{PAI-Dir}/CLAUDE.md` with mode classification rules and Algorithm pointer
+- [ ] The Algorithm file exists at `{PAI-framework-dir}/Algorithm/{Algorithm-version}.md`
 - [ ] `settings.json` exists at `{PAI-Dir}/settings.json` with all required blocks (daidentity, principal, environment, preferences, permissions)
-- [ ] `voiceId` is set and the voice server responds to a test POST at `localhost:{Voice-Server-Port}`
+- [ ] `voiceId` is set and the voice server responds at `localhost:{Voice-Server-Port}` using its documented test command
 - [ ] `DAIDENTITY.md` exists at `{PAI-Dir}/USER/DAIDENTITY.md` with personality traits and voice convention
 - [ ] AI Steering Rules exist at both `SYSTEM/AISTEERINGRULES.md` and `USER/AISTEERINGRULES.md`
-- [ ] All six hook lifecycle events are registered and fire correctly (test with a fresh session)
+- [ ] All hook lifecycle events I rely on (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStop, Stop, SessionEnd) are registered and fire correctly (test with a fresh session)
 - [ ] SecurityValidator hook intercepts Bash, Edit, Write, and Read tool calls
 - [ ] FormatReminder hook classifies depth and returns capability/skill/thinking hints
 - [ ] StopOrchestrator runs voice, capture, and tab-state handlers after each response
-- [ ] Inference.ts responds at all three tiers (fast, standard, smart)
-- [ ] At least one custom skill exists in `skills/` with proper structure (SKILL.md, Workflows/, Tools/)
+- [ ] PRDSync hook updates `{PAI-Dir}/MEMORY/STATE/work.json` after PRD edits (read-only with respect to PRD.md itself)
+- [ ] Inference.ts responds at all three tiers (fast, standard, smart) — `bun {PAI-Dir}/Tools/Inference.ts fast|standard|smart`
+- [ ] At least one custom skill exists in `{PAI-Dir}/skills/` with proper structure (SKILL.md, Workflows/, Tools/)
 - [ ] MEMORY directories exist: WORK/, LEARNING/, STATE/, RESEARCH/
 - [ ] LEARNING subdirectories exist: SYSTEM/, ALGORITHM/, FAILURES/, SIGNALS/
+- [ ] A WORK/{slug}/PRD.md exists from at least one completed task and has all required frontmatter fields (task, slug, effort, phase, progress, mode, started, updated)
 - [ ] Tab title updates on session start
 - [ ] Startup catchphrase plays on first session
 - [ ] A test rating (explicit number 1--10) is captured to LEARNING/SIGNALS/

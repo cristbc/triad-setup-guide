@@ -1,8 +1,8 @@
 # Implementation Checklist
 
-A step-by-step guide for a receiving PAI agent (or human) to stand up the full triad. Each phase has a verification gate — don't proceed until the gate passes.
+A step-by-step guide for a receiving PAI agent (or human) to stand up the full triad. Each phase has a verification gate — don't proceed until the gate passes. The checklist has 8 phases plus a prerequisite phase.
 
-**Note:** This checklist covers the minimum viable triad (2 agents). To add more agents, repeat Phases 5-6 for each additional agent, creating a dedicated communication channel and identity configuration per agent.
+**Note:** This checklist covers the minimum viable triad (2 agents). To add more agents, repeat Phases 5-7 for each additional agent — each new agent needs its own communication channel skill, workspace layout, identity configuration, and tasking protocol setup. The reference triad runs every host on macOS; if you're targeting a Linux/VPS host see the "Alternate hosts" sidebar in `07-OPENCLAW-APPENDIX.md`.
 
 ---
 
@@ -59,8 +59,8 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
   - [ ] Rating capture hooks
   - [ ] Session lifecycle hooks (start, end, stop)
 - [ ] Configure voice server:
-  - [ ] Install and start voice server
-  - [ ] Verify voice server responds: test with its documented endpoint or test command
+  - [ ] Install and start your voice server (whatever implementation you've chosen)
+  - [ ] Verify it responds using its own documented test command — not a hard-coded endpoint, since voice server interfaces vary by implementation
 - [ ] Create DAIDENTITY.md with your DA's personality and voice conventions
 - [ ] Create or customize AI Steering Rules (SYSTEM + USER)
 - [ ] Set up memory directories (WORK/, LEARNING/, STATE/, RESEARCH/)
@@ -108,17 +108,23 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 
 **Read:** `05-COMMUNICATION-PROTOCOLS.md`
 
-- [ ] Install inter-agent channel tool on `{PAI-machine}`
+- [ ] Install inter-agent channel tool on `{PAI-machine}` (adapt the OrphuChannel reference skill for your `{OpenClaw-agent}`)
 - [ ] Configure gateway token in channel tool
-- [ ] Configure gateway token in OpenClaw gateway
-- [ ] Test Channel 1 (Direct): Send message to `{OpenClaw-agent}`, get response
-- [ ] Test Channel 2 (Telegram relay): Send message via `{OpenClaw-agent}` to `{principal}`'s phone
-- [ ] Test Channel 3 (Mobile): Message `{OpenClaw-agent}` directly from Telegram
-- [ ] Test Channel 4 (File exchange): Place file in Syncthing folder, verify arrival
-- [ ] Test fallback: Disconnect LAN, verify Tailscale fallback works
-- [ ] Test file-drop fallback: Stop gateway, verify file-based communication works
+- [ ] Configure gateway token in OpenClaw gateway (`~/.openclaw/openclaw.json`)
+- [ ] Configure SSH alias for `{OpenClaw-agent-lowercase}@{OpenClaw-machine}` with LAN→Tailscale fallback
+- [ ] Test Channel 1 (Direct): `{InterAgent-Tool} wake` returns healthy from `{OpenClaw-agent}`
+- [ ] Test Channel 1: `{InterAgent-Tool} send "ping"` returns a real reply
+- [ ] Verify gateway is loopback-only: `lsof -nP -iTCP:{gateway-port}` shows `127.0.0.1`
+- [ ] Test Channel 2 (Telegram routing): `{InterAgent-Tool} telegram --topic ops "test"` arrives in the **Ops** topic only
+- [ ] Verify topic separation: routine status → Ops, escalations → Relay, failures → Alerts
+- [ ] Test Channel 3 (Mobile): `{principal}` DMs `{telegram-bot}` from phone, gets a response
+- [ ] Test `dmPolicy=pairing`: a non-allowlisted Telegram account is rejected
+- [ ] Test Channel 4 (File exchange): write a file to `{Sync-OpenClaw-dir}/comms/inbox/`, verify it appears at `{Agent-comms-inbox}/` on `{OpenClaw-machine}`
+- [ ] Test Channel 4 reverse: `{OpenClaw-agent}` produces a file in `{Agent-wip-dir}/test/`, verify it appears on `{PAI-machine}` via Syncthing
+- [ ] Test LAN→Tailscale fallback: temporarily block LAN, confirm SSH falls through to Tailscale
+- [ ] Test file-drop degraded mode: stop the gateway, write a brief to `{Agent-comms-inbox}/`, confirm the next heartbeat picks it up
 
-**Gate:** All 4 channels operational. Fallback chain (LAN → Tailscale → file drop) tested.
+**Gate:** All 4 channels operational. SSH→loopback-WebSocket pattern verified. Topic routing correct. Fallback chain (LAN → Tailscale → file drop) tested.
 
 ---
 
@@ -144,7 +150,27 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 
 ---
 
-## Phase 7: Validation and Hardening
+## Phase 7: Tasking Protocol and Heartbeat
+
+**Read:** `08-TASKING-PROTOCOL.md`
+
+- [ ] Create the workspace directory layout on `{OpenClaw-machine}`: `{Agent-comms-inbox}/`, `{Agent-comms-archive}/`, `{Agent-wip-dir}/`, `drafts/`, `notes/`, `memory/`
+- [ ] Write initial `{Agent-workspace-dir}/CURRENT-TASK.md` with status `IDLE` and the required fields (status, owner, assigned_by, brief, last_checkpoint_utc, next_action, artifacts_path)
+- [ ] Write initial `{Agent-workspace-dir}/HEARTBEAT.md` as a checklist (max ~60 lines — procedure, not knowledge base)
+- [ ] Configure `agents.defaults.heartbeat` in `~/.openclaw/openclaw.json` with `interval`, `model`, `session: main`
+- [ ] Wait for one heartbeat cycle and confirm it runs without errors (check gateway logs)
+- [ ] Confirm heartbeat is silent when nothing is noteworthy (no spurious posts)
+- [ ] Test file-first tasking: `{PAI-agent}` writes a brief to `{Agent-comms-inbox}/{PAI-AGENT-NAME}-TO-{OPENCLAW-AGENT-NAME}-test.md`, sends a wake signal via `{InterAgent-Tool} send`, confirm `{OpenClaw-agent}` reads the brief, transitions CURRENT-TASK.md to `IN_PROGRESS`, produces an artifact in `{Agent-wip-dir}/test/`, and archives the brief
+- [ ] Test PRIORITY interrupt: send a HIGH/URGENT brief while a NORMAL task is in progress, confirm the agent pauses the original (sets `## Paused Task` block in CURRENT-TASK.md), works the interrupt, then resumes
+- [ ] Test resume loop detection: stall a task and confirm the heartbeat detects it after 2 cycles and either produces output or escalates to Relay (do NOT post "Recovered from restart" without producing output)
+- [ ] Verify the paste-ready relay format: paste a `[{OPENCLAW-AGENT-NAME}→{PAI-AGENT-NAME}] test` message into a Claude Code session and confirm `{PAI-agent}` responds with the two-zone format automatically
+- [ ] Set up an external dead-man's-switch that alerts if no heartbeat ack arrives within 2× `{Heartbeat-Interval}` (silent failure mitigation)
+
+**Gate:** A file-first brief flows end-to-end (write → wake → read → work → archive). A priority interrupt pauses and resumes correctly. The heartbeat fires on schedule and stays silent unless something's noteworthy.
+
+---
+
+## Phase 8: Validation and Hardening
 
 **Read:** All files (review pass)
 
@@ -171,11 +197,18 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 | Syncthing folders | Per hub-and-spoke topology | 01 |
 | settings.json | `{PAI-dir}/settings.json` | 02 |
 | Security patterns | `{PAI-dir}/skills/PAI/USER/PAISECURITYSYSTEM/` | 03 |
-| Backup script | LaunchAgent or systemd timer | 04 |
-| Channel tool | `{PAI-dir}/tools/` | 05 |
-| Gateway token | `{OpenClaw-config-dir}/` and channel tool | 05 |
-| Soul documents | `{soul-docs-dir}/` on `{OpenClaw-machine}` | 07 |
-| OpenClaw service | `~/.config/systemd/user/` on `{OpenClaw-machine}` | 07 |
+| PAI backup | macOS LaunchAgent → daily snapshot to `{PAI-backups-dir}` | 04 |
+| OpenClaw backup | `openclaw backup create --verify` → weekly LaunchAgent on `{OpenClaw-machine}` | 04 |
+| Channel tool | A skill on `{PAI-machine}` (adapted from OrphuChannel reference) | 05 |
+| Gateway token | `~/.openclaw/openclaw.json` on `{OpenClaw-machine}` and the channel tool's secret store on `{PAI-machine}` | 05 / 07 |
+| Telegram topic IDs | Stored as `{Telegram-Topic-Relay/Ops/Alerts}` in your VARIABLES.md (private) | 05 |
+| Identity files (SOUL/IDENTITY/MEMORY/USER) | Inside `{Agent-workspace-dir}/` on `{OpenClaw-machine}` | 07 |
+| Tasking inbox / archive / wip | `{Agent-comms-inbox}/`, `{Agent-comms-archive}/`, `{Agent-wip-dir}/` | 05 / 08 |
+| OpenClaw binary | `/opt/homebrew/lib/node_modules/openclaw/` (managed by `admin` user) | 07 |
+| OpenClaw gateway service | LaunchAgent at `~/Library/LaunchAgents/ai.openclaw.gateway.plist` | 07 |
+| Heartbeat config | `~/.openclaw/openclaw.json → agents.defaults.heartbeat` | 07 |
+| Heartbeat checklist | `{Agent-workspace-dir}/HEARTBEAT.md` | 07 / 08 |
+| Current task state | `{Agent-workspace-dir}/CURRENT-TASK.md` | 08 |
 
 ---
 

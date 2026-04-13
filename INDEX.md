@@ -8,7 +8,7 @@ A guide for replicating a multi-agent personal AI infrastructure — PAI (Claude
 
 This guide documents a working "triad" pattern: one human coordinating two AI agents across multiple machines. The agents communicate with each other, delegate work to additional compute nodes, share files, and back each other up.
 
-**A concrete example:** In the original setup, the triad is Ben (human), Verbum (PAI/Claude Code agent on a MacBook Pro), and Orphu (OpenClaw/GPT agent on a dedicated Ubuntu laptop). A Mac Mini serves as a parallel worker, and a small-form-factor PC runs Docker services. That's the real-world instance. Everything else in this guide uses template variables so you can build your own.
+**A concrete example:** In the original setup, the triad is Ben (human), Verbum (PAI/Claude Code agent on a Mac mini), and Orphu (OpenClaw/GPT agent on a separate Mac mini under its own user account). A second Mac mini serves as a parallel worker, and a small-form-factor host runs Docker services. The reference implementation is **macOS-only** for both PAI and OpenClaw hosts — it's the validated path. Other host operating systems (Linux, VPS) work structurally; see the "Alternate hosts" sidebar in `07-OPENCLAW-APPENDIX.md`. Everything in this guide uses template variables so you can build your own.
 
 From here on, `{principal}` is the human, `{PAI-agent}` is the Claude Code DA, `{OpenClaw-agent}` is the GPT agent, and all machines/IPs/credentials are variables defined in `VARIABLES.md`.
 
@@ -36,6 +36,9 @@ SECRETS-SETUP.md  (DO THIS FIRST)                      │
   │                    │                               │
   │                    v                               │
   │         07-OPENCLAW-APPENDIX.md                    │
+  │                    │                               │
+  │                    v                               │
+  │         08-TASKING-PROTOCOL.md                     │
   │                                                    │
   └────────────────────────────────────────────────────┘
                        │
@@ -43,9 +46,9 @@ SECRETS-SETUP.md  (DO THIS FIRST)                      │
           IMPLEMENTATION-CHECKLIST.md
 ```
 
-**Sequential path:** VARIABLES → SECRETS → 01 → (02, 03, 04, 05 in any order) → 06 → 07 → CHECKLIST
+**Sequential path:** VARIABLES → SECRETS → 01 → (02, 03, 04, 05 in any order) → 06 → 07 → 08 → CHECKLIST
 
-Files 02–05 are independent of each other but all depend on 01. File 06 depends on 05 (communication protocols). File 07 depends on 06 (multi-agent patterns). The checklist ties everything together.
+Files 02–05 are independent of each other but all depend on 01. File 06 depends on 05 (communication protocols). File 07 depends on 06 (multi-agent patterns). File 08 depends on 05 + 07 (it's the operational doctrine that ties the channels and the OpenClaw runtime together — read it last, but read it). The checklist ties everything together.
 
 **Note for newcomers:** File 02 (PAI Customization Layer) is deep customization — you can skim it initially and return once your basic setup is stable. Files 01, 03, and 05 are the critical path.
 
@@ -63,8 +66,9 @@ Files 02–05 are independent of each other but all depend on 01. File 06 depend
 | `04-BACKUP-AND-RECOVERY.md` | 3-layer backup topology, automated snapshots, disaster recovery |
 | `05-COMMUNICATION-PROTOCOLS.md` | 4 communication channels, message headers, inter-agent tool |
 | `06-MULTI-AGENT-COORDINATION.md` | The triad pattern, delegation, GitHub collaboration, worker system |
-| `07-OPENCLAW-APPENDIX.md` | OpenClaw setup adapted for portability (8-section template) |
-| `IMPLEMENTATION-CHECKLIST.md` | 7-phase step-by-step with verification gates |
+| `07-OPENCLAW-APPENDIX.md` | OpenClaw setup adapted for portability (macOS-first, 8-section template) |
+| `08-TASKING-PROTOCOL.md` | Operational doctrine: file-first tasking, channel selection, heartbeat scope, anti-patterns |
+| `IMPLEMENTATION-CHECKLIST.md` | 8-phase step-by-step with verification gates |
 
 ---
 

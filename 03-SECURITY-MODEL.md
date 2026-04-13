@@ -10,7 +10,7 @@ This is an architectural guide. It describes WHAT exists and WHY, not HOW it is 
 
 ### Defense in Depth
 
-![Defense in Depth — Concentric Security Layers](diagrams/defense-in-depth.png)
+> **Diagram:** see [`diagrams/defense-in-depth.md`](diagrams/defense-in-depth.md) — concentric security layers from network through host, application, agent behavior, to principal authority.
 
 I operate under multiple independent security layers. No single layer is sufficient on its own. If one layer fails, the others still protect:
 
@@ -42,7 +42,7 @@ These three systems do not overlap in responsibility. Permissions decide IF a to
 
 ## Three-Level Model
 
-![Tool Invocation Decision Flowchart](diagrams/tool-invocation-flowchart.png)
+> **Diagram:** see [`diagrams/tool-invocation-flowchart.md`](diagrams/tool-invocation-flowchart.md) — PreToolUse hook decision flow (BLOCK / CONFIRM / ALERT / ALLOW).
 
 Every tool invocation is classified into one of three security levels:
 

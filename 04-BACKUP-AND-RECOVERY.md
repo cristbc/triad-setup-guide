@@ -21,7 +21,7 @@ What I protect, in priority order:
 3. `{OpenClaw-config-dir}` and `{soul-docs-dir}` — `{OpenClaw-agent}`'s configuration and identity
 4. Service configurations — Docker compose files, volumes, environment configs
 
-![3-Layer Backup Topology](diagrams/backup-topology.png)
+> **Diagram:** see [`diagrams/backup-topology.md`](diagrams/backup-topology.md) — 3-layer backup topology (on-host snapshots, Syncthing distribution, full system + offsite).
 
 ---
 
@@ -73,11 +73,13 @@ On macOS, I use a LaunchAgent plist to schedule the daily job:
 </plist>
 ```
 
-The plist lives at `~/Library/LaunchAgents/com.pai.daily-backup.plist`. Load it with:
+The plist lives at `~/Library/LaunchAgents/com.pai.daily-backup.plist`. Bootstrap it into launchd with:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.pai.daily-backup.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.pai.daily-backup.plist
 ```
+
+To stop the backup temporarily: `launchctl bootout gui/$(id -u)/com.pai.daily-backup`. To restart after editing the plist: `launchctl kickstart -k gui/$(id -u)/com.pai.daily-backup` (only works if the service is already loaded — otherwise re-bootstrap). Avoid the legacy `launchctl load`/`unload` pattern: it's deprecated and has different semantics around agent lifecycle.
 
 ### Backup Script Logic
 
@@ -171,7 +173,7 @@ Rotation cycle:
 
 ## Disaster Recovery Runbooks
 
-![Disaster Recovery Source Matrix](diagrams/dr-recovery-matrix.png)
+> **Diagram:** see [`diagrams/dr-recovery-matrix.md`](diagrams/dr-recovery-matrix.md) — failure scenarios mapped to recovery sources and RTO targets.
 
 Four scenarios, ordered by likelihood. Each includes the steps to get back to operational and the expected recovery time.
 
@@ -237,63 +239,71 @@ Four scenarios, ordered by likelihood. Each includes the steps to get back to op
 
 ### Scenario 2: `{OpenClaw-machine}` Failure (Total Loss)
 
-**Situation:** The machine running `{OpenClaw-agent}` is dead. I've lost the operating system, all local data, and the agent's configuration.
+**Situation:** The Mac mini running `{OpenClaw-agent}` is dead. I've lost the OS, all local data, and the agent's configuration.
 
-**Recovery source:** `{Sync-OpenClaw-dir}/backups/` on `{PAI-machine}` + OpenClaw source repository
+**Recovery source:** Latest verified `openclaw backup` archive synced to `{PAI-machine}` + OpenClaw npm package.
 
 **Steps:**
 
-1. **Fresh OS install**
-   - Install Ubuntu 24.04 on replacement hardware
-   - During install: set hostname to `{OpenClaw-machine}`, create user `{principal-lowercase}`
+1. **Fresh macOS install on replacement hardware**
+   - Install macOS, name the host `{OpenClaw-machine}`
+   - Create the `admin` account (owns Homebrew + global npm) and the `{OpenClaw-agent-lowercase}` account (runs the agent)
+   - Enable FileVault before going further
 
-2. **Run post-install script**
-   - Install essential packages: `build-essential`, `curl`, `git`, `tmux`, `jq`
+2. **Install prerequisites (as `admin`)**
+   - Install Homebrew, then `brew install node syncthing`
    - Install and authenticate Tailscale: `tailscale up --ssh`
-   - Install Syncthing: `sudo apt install syncthing && systemctl --user enable --now syncthing`
-   - Configure lid-close behavior (if laptop) per `01-HOST-AND-NETWORK.md`
+   - On both user accounts: enable Remote Login (System Settings → General → Sharing)
 
-3. **Restore from backup archive**
-   - My OpenClaw backup script stores timestamped archives in `{Sync-OpenClaw-dir}/backups/` which syncs to `{PAI-machine}`
-   - Copy the latest archive to the new machine:
+3. **Install OpenClaw (as `admin`)**
+   ```bash
+   ssh admin@{OpenClaw-machine} "export PATH=/opt/homebrew/bin:\$PATH && \
+     npm install -g openclaw"
+   ```
+   - Verify: `openclaw --version` matches your last-known-good version (or accept latest)
+
+4. **Restore the agent's state from the backup archive**
+   - Copy the latest verified archive from `{PAI-machine}` to the new host's agent user:
+     ```bash
+     scp {Sync-OpenClaw-dir}/backups/openclaw-backup-<latest>.tar.gz \
+         {OpenClaw-agent-lowercase}@{OpenClaw-machine}:~/
      ```
-     scp {PAI-machine}:{Sync-OpenClaw-dir}/backups/openclaw-backup-latest.tar.gz ~/
+   - Restore via the OpenClaw command (knows how to extract config + workspace + auth into the right places):
+     ```bash
+     ssh {OpenClaw-agent-lowercase} "export PATH=/opt/homebrew/bin:\$PATH && \
+       openclaw backup restore ~/openclaw-backup-<latest>.tar.gz"
      ```
-   - Extract to home directory
 
-4. **Reinstall OpenClaw from source**
-   - Clone the OpenClaw repository to `{OpenClaw-install-dir}`
-   - Install dependencies per OpenClaw documentation
-   - Copy restored configuration into `{OpenClaw-config-dir}`
+5. **Reinstall the gateway LaunchAgent (as the agent user)**
+   ```bash
+   ssh {OpenClaw-agent-lowercase} "export PATH=/opt/homebrew/bin:\$PATH && \
+     openclaw gateway install --force"
+   ssh {OpenClaw-agent-lowercase} "launchctl bootstrap gui/\$(id -u) \
+     ~/Library/LaunchAgents/ai.openclaw.gateway.plist"
+   ```
 
-5. **Restore systemd services**
-   - Copy restored service files to `~/.config/systemd/user/`
-   - Reload: `systemctl --user daemon-reload`
-   - Enable and start: gateway, Telegram bot, scheduled tasks
-   - Verify each service is active: `systemctl --user status <service>`
+6. **Verify identity files survived the restore**
+   - `{Agent-workspace-dir}/SOUL.md`, `IDENTITY.md`, and any custom prompts should be present
+   - Without them the agent works but isn't *itself*
 
-6. **Restore soul documents**
-   - Copy restored soul docs to `{soul-docs-dir}`
-   - These define `{OpenClaw-agent}`'s identity and personality — without them, the agent works but isn't *itself*
+7. **Restore SSH access from `{PAI-machine}`**
+   - Append `{SSH-automation-key}.pub` to `~/.ssh/authorized_keys` for both `admin` and `{OpenClaw-agent-lowercase}`
+   - Restrict each line to LAN: `from="{LAN-subnet}" ssh-ed25519 AAAA... homelab-automation`
 
-7. **Restore SSH authorized keys**
-   - Copy `{SSH-automation-key}.pub` from `{PAI-machine}` to `~/.ssh/authorized_keys` on the new machine
-   - Restrict to LAN: `from="{LAN-subnet}" ssh-ed25519 AAAA... homelab-automation`
-
-8. **Re-pair Syncthing with `{PAI-machine}`**
-   - New device ID generated on fresh install
-   - Add `{PAI-machine}` as remote device, share `{Sync-OpenClaw-dir}` folder
-   - Accept pairing on `{PAI-machine}` side
-   - Remove the old device entry on `{PAI-machine}`
+8. **Re-pair Syncthing**
+   - Install + start Syncthing on the agent user
+   - New device ID generated — add `{PAI-machine}` as a remote device, accept pairing on `{PAI-machine}`
+   - Re-share `{Sync-OpenClaw-dir}` and the backups folder
+   - Remove the old device entry on `{PAI-machine}` once the new pairing is healthy
 
 9. **Verify operational state**
-   - Gateway responds to WebSocket connections
-   - Telegram bot receives and responds to messages
-   - Scheduled tasks fire on time
-   - `{PAI-agent}` can reach `{OpenClaw-agent}` via inter-agent channel
+   - `curl -s http://127.0.0.1:18789/health` returns `{"ok":true,"status":"live"}` (use your own `{gateway-port}`)
+   - Telegram bot receives and responds
+   - Heartbeat is registered: `openclaw cron list` shows it (read-only — never run this against the live gateway from automation; run it from interactive SSH only)
+   - `{PAI-agent}` can reach `{OpenClaw-agent}` via the inter-agent channel
    - Syncthing shows folder in sync
 
-**RTO target:** 30-45 minutes
+**RTO target:** 30-60 minutes (most of it is the macOS install + Homebrew bootstrap)
 
 ---
 
@@ -377,33 +387,83 @@ Four scenarios, ordered by likelihood. Each includes the steps to get back to op
 
 ## OpenClaw Backup Specifics
 
-`{OpenClaw-agent}`'s state is spread across several locations on `{OpenClaw-machine}`. My backup script captures all of them into a single timestamped archive:
+`{OpenClaw-agent}`'s state is captured by OpenClaw's native backup command, which knows about all the runtime locations OpenClaw uses (config, workspace, identity, plugin state) and produces a single verified archive.
 
-### What the Backup Script Captures
+### The Native Backup Command
 
-| Component | Path | Why It Matters |
-|-----------|------|---------------|
-| OpenClaw configuration | `{OpenClaw-config-dir}` | Agent settings, gateway config, API keys |
-| systemd service files | `~/.config/systemd/user/` | Service definitions for gateway, bot, tasks |
-| SSH authorized keys | `~/.ssh/authorized_keys` | Allows `{PAI-machine}` to connect |
-| Soul documents | `{soul-docs-dir}` | Agent identity, personality, behavioral rules |
-| Scheduled tasks | Crontab or systemd timers | Recurring jobs the agent runs |
+Run as the agent user on `{OpenClaw-machine}`:
 
-### Archive Format
-
+```bash
+# Non-login SSH from {PAI-machine} doesn't include /opt/homebrew/bin in PATH:
+ssh {OpenClaw-agent-lowercase} "export PATH=/opt/homebrew/bin:\$PATH && \
+  openclaw backup create --output ~/Backups --verify"
 ```
-openclaw-backup-YYYY-MM-DD-HHMMSS.tar.gz
+
+Successful output ends with `Archive verification: passed`. The `--verify` flag re-reads the archive after writing and confirms every file is intact — never skip it.
+
+To verify an existing archive at any time:
+
+```bash
+ssh {OpenClaw-agent-lowercase} "export PATH=/opt/homebrew/bin:\$PATH && \
+  openclaw backup verify ~/Backups/<archive-name>.tar.gz"
 ```
+
+### What the Native Backup Captures
+
+OpenClaw's backup command knows about its own state and captures all of it: configuration (`~/.openclaw/`), agent workspace (`{Agent-workspace-dir}` — CURRENT-TASK, HEARTBEAT, SOUL/IDENTITY, comms, wip, drafts, memory), plugin state, and auth profiles. You don't need a hand-rolled `tar` script anymore — the OpenClaw command handles file selection, exclusions, and verification.
 
 ### Where It Goes
 
-The archive is written to `{Sync-OpenClaw-dir}/backups/` on `{OpenClaw-machine}`. Because `{Sync-OpenClaw-dir}` is a bidirectional Syncthing folder, the archive automatically syncs to `{PAI-machine}`. This means I always have a copy of `{OpenClaw-agent}`'s backup on my own machine, even if `{OpenClaw-machine}` dies.
+Archives land in `~/Backups/` on `{OpenClaw-machine}` by default. To make them survive the loss of the host, share `~/Backups/` (or a subdirectory of it) via Syncthing back to `{PAI-machine}`. Treat this as a one-way (send-only) folder — `{PAI-machine}` should never write into the agent's backup directory.
+
+### Schedule via LaunchAgent
+
+A LaunchAgent on `{OpenClaw-machine}` runs the backup weekly. Plist (in the agent user's `~/Library/LaunchAgents/`):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.{principal-lowercase}.openclaw-backup</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>export PATH=/opt/homebrew/bin:$PATH; openclaw backup create --output $HOME/Backups --verify</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key><integer>0</integer>   <!-- Sunday -->
+        <key>Hour</key><integer>3</integer>
+        <key>Minute</key><integer>15</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/tmp/openclaw-backup.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/openclaw-backup.err</string>
+</dict>
+</plist>
+```
+
+Bootstrap and check it:
+
+```bash
+ssh {OpenClaw-agent-lowercase} "launchctl bootstrap gui/\$(id -u) \
+  ~/Library/LaunchAgents/com.{principal-lowercase}.openclaw-backup.plist"
+
+ssh {OpenClaw-agent-lowercase} "launchctl print gui/\$(id -u)/com.{principal-lowercase}.openclaw-backup | head"
+```
+
+I keep ~28 days of weekly backups by adding a retention step (older `*.tar.gz` files in `~/Backups/` deleted after 28 days). Because each agent on the host gets its own LaunchAgent with its own label, multi-agent hosts can run multiple backup jobs at staggered Sunday times.
 
 ### When to Run
 
 - **Before any OpenClaw update** (new version, config change)
 - **Before any OS change** (system update, package upgrade)
-- **Periodically** via cron or systemd timer (daily recommended)
+- **Periodically** via the LaunchAgent above (weekly recommended for small workspaces, daily if your workspace is large or volatile)
 - **Before hardware changes** (moving to new machine, disk swap)
 
 ---

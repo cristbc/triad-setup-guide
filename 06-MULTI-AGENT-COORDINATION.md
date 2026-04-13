@@ -16,7 +16,7 @@ The triad is three entities — `{principal}` (human), `{PAI-agent}` (Claude Cod
 
 The triad isn't hierarchical in a strict sense — `{principal}` has authority, but both agents can initiate work, ask each other questions, and propose actions. The pattern is closer to a team with a lead than a command chain.
 
-![Triad Entity Relationship and Delegation Flow](diagrams/triad-delegation-flow.png)
+> **Diagram:** see [`diagrams/triad-delegation-flow.md`](diagrams/triad-delegation-flow.md) — embedded Mermaid showing entity relationships and the file-first delegation flow.
 
 ---
 
@@ -42,16 +42,33 @@ The coordination anti-patterns from the table below apply regardless of agent co
 
 ### {PAI-agent} → {OpenClaw-agent}
 
-When I need `{OpenClaw-agent}` to do something, I use the inter-agent channel (see 05):
+When I need `{OpenClaw-agent}` to do something, the protocol is **file first, gateway second**: I write a brief into `{Agent-comms-inbox}/` and then send a wake signal via Channel 1 pointing at the file. The full doctrine — including the channel selection matrix, anti-patterns, and resume-loop detection — lives in `08-TASKING-PROTOCOL.md`. The summary:
 
-**Task delegation:**
+**Tandem task brief (`{PAI-agent}` + `{OpenClaw-agent}` working in parallel):**
+
+```bash
+# 1. Write the brief (durable, survives compaction)
+ssh {OpenClaw-agent-lowercase} "cat > {Agent-comms-inbox}/{PAI-AGENT-NAME}-TO-{OPENCLAW-AGENT-NAME}-<slug>.md << 'BRIEF'
+# Task: <title>
+
+## Context
+<What I'm working on, why their piece matters>
+
+## Deliverables
+<Exact files/artifacts to produce, in {Agent-wip-dir}/<slug>/>
+
+## Acceptance Criteria
+<Bullet list, testable>
+
+## Priority
+NORMAL | HIGH | URGENT
+BRIEF"
+
+# 2. Send the wake signal (ephemeral, just points at the file)
+{InterAgent-Tool} send "New task brief at comms/inbox/{PAI-AGENT-NAME}-TO-{OPENCLAW-AGENT-NAME}-<slug>.md. Read and begin."
 ```
-[{PAI-AGENT-NAME}] → [{OPENCLAW-AGENT-NAME}]
-Purpose: Research current pricing for {topic}
----
-Please research and summarize current pricing for {topic}.
-Return findings in markdown format.
-```
+
+**Why this shape:** Chat memory inside `{OpenClaw-agent}`'s session compacts. A brief sent only as a gateway message gets lost after a few turns. A brief sitting on disk survives compaction, gateway restarts, and heartbeat cycles. The wake signal is the immediate-attention nudge; the file is the source of truth.
 
 **Common delegation scenarios:**
 - Research tasks requiring a different model perspective
@@ -191,13 +208,16 @@ Names matter in the triad. `{PAI-agent}` and `{OpenClaw-agent}` aren't generic a
 
 ## Coordination Anti-Patterns
 
-Things I've learned not to do:
+Things I've learned not to do (the long form, with fixes, lives in `08-TASKING-PROTOCOL.md`):
 
 | Don't | Why | Instead |
 |-------|-----|---------|
 | Both agents editing same file simultaneously | Merge conflicts, lost work | Coordinate via channel first |
-| Delegating without context | Agent wastes time figuring out what you mean | Include full context in every delegation |
-| Assuming the other agent remembers | Each session starts fresh (for me) | Reference specific files or prior decisions |
+| Sending the full task brief as a gateway message | Chat memory compacts; brief gets lost after a few turns | Write the brief into `{Agent-comms-inbox}/`; gateway message is the wake signal pointing at the file |
+| Writing to `{Agent-comms-inbox}/` without a wake signal | Agent won't see it until the next heartbeat (up to one full interval delay) | Always pair a file drop with a Channel 1 wake call |
+| Overwriting `{OpenClaw-agent}`'s `CURRENT-TASK.md` directly to redirect them | Races with the agent's own edits; can cause checkpoint collisions and resume loops | Send a HIGH/URGENT brief and let the agent transition state itself |
+| Delegating without context | Agent wastes time figuring out what you mean | Include context, deliverables, acceptance criteria, and priority in the brief |
+| Assuming the other agent remembers | Each Claude Code session starts fresh (for me) | Reference specific files or prior decisions in the brief |
 | Sending credentials over the channel | Visible in logs, transit risk | Reference by variable name, let each agent use its own local copy |
 | Delegating my core work to `{OpenClaw-agent}` | Different capabilities, different codebase access | Use each agent's strengths |
 

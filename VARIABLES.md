@@ -16,13 +16,15 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 
 ## Machine Variables
 
+The reference triad runs every host on macOS. Other hosts (Linux, VPS) work structurally — see the "Alternate hosts" sidebar in `07-OPENCLAW-APPENDIX.md` — but are not validated against current OpenClaw releases.
+
 | Variable | Purpose | Example |
 |----------|---------|---------|
-| `{PAI-machine}` | Primary workstation hostname running PAI/Claude Code | <!-- sedes --> |
-| `{OpenClaw-machine}` | Secondary machine hosting OpenClaw agent | <!-- ariel --> |
-| `{services-machine}` | Docker services host (reverse proxy, file sharing, fleet dashboard) | <!-- oikos --> |
-| `{worker-machine}` | Parallel delegation worker for compute-heavy tasks | <!-- ccmini --> |
-| `{hypervisor-machine}` | Proxmox hypervisor (if using VMs for services) | <!-- lenovo-bm --> |
+| `{PAI-machine}` | Primary workstation hostname running PAI/Claude Code (macOS) | (your hostname) |
+| `{OpenClaw-machine}` | Secondary machine hosting the OpenClaw agent (macOS — Mac mini works well) | (your hostname) |
+| `{services-machine}` | Docker services host (reverse proxy, file sharing, fleet dashboard) | (your hostname) |
+| `{worker-machine}` | Parallel delegation worker for compute-heavy tasks | (your hostname) |
+| `{hypervisor-machine}` | Proxmox hypervisor (only if you virtualize `{services-machine}`) | (your hostname) |
 
 ---
 
@@ -80,6 +82,11 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 | `{gateway-token}` | OpenClaw gateway authentication token | `openssl rand -hex 24` |
 | `{telegram-bot}` | Telegram bot username for mobile access | Create via BotFather |
 | `{telegram-bot-token}` | Telegram bot API token | From BotFather on creation |
+| `{Inter-Agent-Group-ID}` | Telegram group ID for triad coordination (Relay/Ops/Alerts topics) | Created when you make the group; treat as private |
+| `{Telegram-Topic-Relay}` | Topic ID for agent-to-principal escalations (sacred channel) | Assigned when topic is created |
+| `{Telegram-Topic-Ops}` | Topic ID for routine status, heartbeat acks | Assigned when topic is created |
+| `{Telegram-Topic-Alerts}` | Topic ID for failures, backup results, health events | Assigned when topic is created |
+| `{Principal-Telegram-User-ID}` | Telegram user ID for the human principal (used in DM allowlist) | Look up via @userinfobot; treat as private |
 | `{Syncthing-device-ID-PAI}` | Syncthing device ID for PAI machine | Auto-generated on install |
 | `{Syncthing-device-ID-OpenClaw}` | Syncthing device ID for OpenClaw machine | Auto-generated on install |
 | `{Syncthing-device-ID-services}` | Syncthing device ID for services machine | Auto-generated on install |
@@ -121,9 +128,13 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 | `{Sync-OpenClaw-dir}` | Syncthing folder for OpenClaw file exchange | `~/PAI-{openclaw-suffix}` |
 | `{Sync-worker-dir}` | Syncthing folder for worker job exchange | `~/PAI-{worker-suffix}` |
 | `{Sync-services-dir}` | Syncthing folder for services config exchange | `~/PAI-{services-suffix}` |
-| `{OpenClaw-install-dir}` | OpenClaw installation path on OpenClaw machine | `~/openclaw` |
+| `{OpenClaw-install-dir}` | OpenClaw installation path on OpenClaw machine | `/opt/homebrew/lib/node_modules/openclaw` (macOS, npm global) |
 | `{OpenClaw-config-dir}` | OpenClaw configuration directory | `~/.openclaw` |
-| `{soul-docs-dir}` | OpenClaw agent soul/identity documents | `~/clawd` |
+| `{Agent-workspace-dir}` | OpenClaw agent runtime workspace (CURRENT-TASK, comms, wip, drafts) | `~/agent-workspace` |
+| `{Agent-comms-inbox}` | File-based brief inbox inside the agent workspace | `{Agent-workspace-dir}/comms/inbox` |
+| `{Agent-comms-archive}` | Processed-brief archive inside the agent workspace | `{Agent-workspace-dir}/comms/archive` |
+| `{Agent-wip-dir}` | Active work-in-progress artifacts | `{Agent-workspace-dir}/wip` |
+| `{soul-docs-dir}` | OpenClaw agent soul/identity documents (typically inside the workspace) | `{Agent-workspace-dir}` |
 
 ---
 
@@ -143,7 +154,7 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 | `{PAI-version}` | PAI framework version | `4.0.3` |
 | `{Algorithm-version}` | Algorithm version | `v3.5.0` |
 | `{PAI-repo}` | PAI source repository | `github.com/danielmiessler/PAI` |
-| `{OpenClaw-version}` | OpenClaw version tag | Date-based (e.g., `2026.3.13`) |
+| `{OpenClaw-version}` | OpenClaw version tag | Date-based, e.g. `2026.4.x`. Don't pin in docs — describe as "current stable at install time". |
 
 ---
 
@@ -174,7 +185,9 @@ Variables use `{Title-Case-Hyphenated}` format. If you see one in any guide file
 | `{services-suffix}` | Suffix for services Syncthing folder | Used in folder naming |
 | `{openclaw-suffix}` | Lowercase suffix for OpenClaw folder | Used in path examples |
 | `{new-version}` | Target version for OpenClaw updates | Used in update docs |
-| `{channel-tool}` | Inter-agent channel tool name/path | e.g., `orphu-channel.sh` |
+| `{InterAgent-Tool}` | Inter-agent channel CLI tool (the wrapper that does SSH→loopback WebSocket) | e.g., `~/.claude/skills/{OpenClaw-agent}Channel/Tools/{OpenClaw-agent-lowercase}-channel.sh` |
+| `{Heartbeat-Interval}` | Heartbeat cron interval for `{OpenClaw-agent}` | e.g., `60m` |
+| `{principal-uppercase}` | Uppercase form of `{principal}` (used in relay format `[{principal-uppercase} ONLY]` opt-out marker) | e.g., `BEN` |
 | `{services-backups-dir}` | Backup landing directory on services machine | May differ from `{PAI-backups-dir}` |
 
 ---

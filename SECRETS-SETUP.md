@@ -78,7 +78,25 @@ Auto-generated on first run. No manual generation.
 - Record API token as `{telegram-bot-token}`
 - Store token in your password manager
 
-### 7. API Keys (not templated — varies by installation)
+### 7. Telegram Inter-Agent Group (Relay / Ops / Alerts topics)
+
+The triad uses a single private Telegram group with three topics for operational separation. `{principal}` is a member; `{telegram-bot}` is added as the routing endpoint.
+
+**Setup:**
+- Create a private group in Telegram and enable Topics in group settings
+- Add `{telegram-bot}` as a member with admin rights for posting
+- Create three topics:
+  - **Relay** — for agent-to-`{principal}` escalations (sacred channel; treat as read-only-from-Ops)
+  - **Ops** — for routine status, heartbeat acks, configuration changes
+  - **Alerts** — for failures, backup results, health events
+- Look up the group ID and topic thread IDs (e.g., via the bot's `getUpdates` API or @userinfobot in the group)
+- Record IDs as `{Inter-Agent-Group-ID}`, `{Telegram-Topic-Relay}`, `{Telegram-Topic-Ops}`, `{Telegram-Topic-Alerts}`
+- Look up `{principal}`'s personal Telegram user ID via @userinfobot — record as `{Principal-Telegram-User-ID}` (used by the OpenClaw `dmPolicy=pairing` allowlist)
+- Store all four group/topic IDs and the user ID in your password manager
+
+**Why a private group with topics, not just DMs:** Topic separation lets the agent post routine status (Ops) without competing for attention with genuine escalations (Relay). The Alerts topic is independently muteable so failure noise doesn't drown out the other two.
+
+### 8. API Keys (not templated — varies by installation)
 
 You'll need API keys for services you choose to use. Common ones:
 

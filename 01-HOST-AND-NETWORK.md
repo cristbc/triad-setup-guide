@@ -11,16 +11,18 @@ The triad uses a minimum of two machines (PAI + OpenClaw), but the full pattern 
 | Role | Variable | OS | Purpose |
 |------|----------|----|---------|
 | **PAI workstation** | `{PAI-machine}` | macOS | My home. Runs Claude Code, all PAI infrastructure, orchestrates everything. |
-| **OpenClaw host** | `{OpenClaw-machine}` | Ubuntu 24.04 | Dedicated to `{OpenClaw-agent}`. All compute reserved for the GPT agent. |
+| **OpenClaw host** | `{OpenClaw-machine}` | macOS (Mac mini works well) | Dedicated to `{OpenClaw-agent}` under its own user account. All compute reserved for the GPT agent. |
 | **Services host** | `{services-machine}` | Linux (VM or bare-metal) | Docker services: reverse proxy, file sharing, fleet dashboard. Services evolve — document current stack in VARIABLES.md. |
 | **Worker node** | `{worker-machine}` | macOS | Parallel delegation target. Receives compute jobs from `{PAI-machine}`. |
 | **Hypervisor** | `{hypervisor-machine}` | Proxmox (optional) | Hosts `{services-machine}` as a VM. Only needed if you virtualize. |
 
 **Note:** The hypervisor role is optional. If `{services-machine}` runs on bare-metal hardware, this role is eliminated entirely.
 
+**On host OS choice for `{OpenClaw-machine}`:** The reference triad runs OpenClaw on macOS — installed via `npm install -g openclaw` against Homebrew node, services managed by `launchctl`. A second user account on the OpenClaw host owns the agent's workspace and runs the gateway under launchd. Linux/VPS deployments work structurally but are not currently validated against the live OpenClaw release; see the "Alternate hosts" sidebar in `07-OPENCLAW-APPENDIX.md`.
+
 **Minimum viable triad:** `{PAI-machine}` + `{OpenClaw-machine}`. The services and worker nodes extend capability but aren't required to start.
 
-![Network Topology — LAN + Tailscale Overlay](diagrams/network-topology.png)
+> **Diagram:** see [`diagrams/network-topology.md`](diagrams/network-topology.md) — LAN + Tailscale overlay with all four hosts and the two-user OpenClaw layout.
 
 ---
 
@@ -146,11 +148,18 @@ brew services start syncthing
 # Web GUI at http://localhost:8384
 ```
 
-**Linux (`{OpenClaw-machine}`, `{services-machine}`):**
+**macOS additional users (`{OpenClaw-machine}` running OpenClaw under its own user):**
+```bash
+# As the agent user on {OpenClaw-machine}:
+brew install syncthing
+brew services start syncthing
+# Web GUI at http://localhost:8384
+```
+
+**Linux (`{services-machine}` only, if you use a Linux services host):**
 ```bash
 sudo apt install syncthing
-systemctl --user enable syncthing
-systemctl --user start syncthing
+systemctl --user enable --now syncthing.service
 # Web GUI at http://localhost:8384
 ```
 
@@ -170,47 +179,53 @@ systemctl --user start syncthing
 
 ## OpenClaw Machine — Platform-Specific Configuration
 
-`{OpenClaw-machine}` runs Ubuntu 24.04 dedicated to `{OpenClaw-agent}`. A few Linux-specific settings ensure reliable headless operation:
+`{OpenClaw-machine}` runs macOS dedicated to `{OpenClaw-agent}`. A Mac mini works well — small, silent, low-power, and runs 24/7 with the lid closed (or with no lid at all). Detailed install steps live in `07-OPENCLAW-APPENDIX.md`. The host-level concerns below apply regardless of which OpenClaw release you install.
 
-**macOS alternative:** If `{OpenClaw-machine}` runs macOS instead of Linux, the concepts are identical but tooling differs: use Homebrew instead of apt, launchd instead of systemd, and `brew services` instead of `systemctl`. The guide documents the Linux path as it's more common for dedicated agent hosts, but macOS works equally well.
+### Two-User Layout
 
-### Prevent Lid-Close Suspend
+I run two macOS user accounts on `{OpenClaw-machine}`:
 
-If using a laptop as the OpenClaw host, disable suspend on lid close:
+| User | Owns | Why |
+|------|------|-----|
+| `admin` | `/opt/homebrew` (Homebrew + global npm packages) | The OpenClaw binary is installed via `npm install -g openclaw` and lives under `admin:staff`. Updates run as `admin`. |
+| `{OpenClaw-agent-lowercase}` | `{Agent-workspace-dir}`, `~/.openclaw/`, `~/Library/LaunchAgents/ai.openclaw.gateway.plist` | The agent runs as its own user. This isolates its workspace, secrets, and LaunchAgent from the admin user and from `{principal}`'s personal files. |
 
-```
-# /etc/systemd/logind.conf
-HandleLidSwitch=ignore
-HandleLidSwitchExternalPower=ignore
-HandleLidSwitchDocked=ignore
-```
+This split keeps the binary in one place (admin can update it once) while giving each agent on the host its own isolated home directory. If you ever add a second OpenClaw agent on the same Mac mini, it gets its own user account too.
 
-Then: `sudo systemctl restart systemd-logind`
+### Stay Awake
 
-### Network (Headless Ethernet)
+Even without a lid, macOS will sleep on idle. Configure power settings so the OpenClaw host stays awake whenever it's on AC power:
 
-For a headless server installation, you may prefer systemd-networkd + netplan. If running Ubuntu Desktop, NetworkManager works fine — skip this section. Example netplan config:
-
-```yaml
-# /etc/netplan/01-ethernet.yaml
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    {ethernet-interface}:
-      dhcp4: true
-      # Or static:
-      # addresses: [{OpenClaw-LAN-IP}/24]
-      # routes:
-      #   - to: default
-      #     via: {gateway-IP}
+```bash
+sudo pmset -c sleep 0 displaysleep 10 disksleep 0
+sudo pmset -c womp 1   # Wake on network access
 ```
 
-Apply: `sudo netplan apply`
+For a headless Mac mini you can also disable display sleep entirely (`displaysleep 0`).
+
+### SSH Aliases for Multi-User Hosts
+
+Because the OpenClaw host has two user accounts, the simplest way to address each one is with a per-user SSH alias on `{PAI-machine}`. Example `~/.ssh/config` block:
+
+```
+Host {OpenClaw-agent-lowercase}
+    HostName {OpenClaw-LAN-IP}
+    User {OpenClaw-agent-lowercase}
+    IdentityFile ~/.ssh/{SSH-automation-key}
+
+Host {OpenClaw-machine}
+    HostName {OpenClaw-LAN-IP}
+    User admin
+    IdentityFile ~/.ssh/{SSH-automation-key}
+```
+
+`ssh {OpenClaw-agent-lowercase}` lands you in the agent user's session for workspace operations, gateway management, and `openclaw` CLI calls. `ssh {OpenClaw-machine}` lands you in the admin session for OpenClaw binary updates via npm.
+
+**Tailscale fallback:** Add a `Match exec` block (or use Tailscale SSH) so the same alias falls through to the Tailscale IP when the LAN is unreachable.
 
 ### Disk Encryption
 
-Consider LUKS full-disk encryption for the OpenClaw machine, especially if it's a repurposed laptop. This protects `{OpenClaw-agent}`'s data at rest if the machine is lost or stolen.
+Enable FileVault on `{OpenClaw-machine}`. The agent's workspace contains task history, conversation context, and identity documents — encrypted-at-rest is non-negotiable, especially if the machine is portable.
 
 ---
 
