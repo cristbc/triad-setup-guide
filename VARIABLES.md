@@ -45,13 +45,16 @@ The reference triad runs every host on macOS. Other hosts (Linux, VPS) work stru
 | Variable | Purpose | Example Format |
 |----------|---------|----------------|
 | `{PAI-LAN-IP}` | PAI machine LAN address | `10.x.x.x` |
+| `{PAI-TS-IP}` | PAI machine Tailscale address | `100.x.x.x` |
 | `{OpenClaw-LAN-IP}` | OpenClaw machine LAN address | `10.x.x.x` |
 | `{OpenClaw-TS-IP}` | OpenClaw Tailscale address | `100.x.x.x` |
 | `{services-LAN-IP}` | Services machine LAN address | `10.x.x.x` |
+| `{services-TS-IP}` | Services machine Tailscale address | `100.x.x.x` |
 | `{worker-LAN-IP}` | Worker machine LAN address | `10.x.x.x` |
+| `{worker-TS-IP}` | Worker machine Tailscale address | `100.x.x.x` |
 | `{hypervisor-LAN-IP}` | Hypervisor LAN address | `10.x.x.x` |
 | `{LAN-subnet}` | Network subnet (CIDR) | `10.x.x.0/24` |
-| `{gateway-port}` | OpenClaw gateway port | `18789` |
+| `{gateway-port}` | OpenClaw gateway port (loopback-bound) | `18789` |
 
 ---
 
@@ -67,7 +70,7 @@ The reference triad runs every host on macOS. Other hosts (Linux, VPS) work stru
 | `{Voice-Stability}` | Voice stability parameter | Float 0.0–1.0 |
 | `{Voice-Similarity-Boost}` | Voice similarity boost | Float 0.0–1.0 |
 | `{Voice-Style}` | Voice style parameter | Float 0.0–1.0 |
-| `{Voice-Server-Port}` | Voice notification server port | `8888` |
+| `{Voice-Server-Port}` | Voice/notification server port (the PAI dashboard, "Pulse", serves voice notifications on this port) | `31337` |
 | `{Startup-Catchphrase}` | DA startup greeting | Short spoken phrase |
 | `{Principal-Timezone}` | Your timezone | e.g., `America/Chicago` |
 
@@ -151,17 +154,21 @@ The reference triad runs every host on macOS. Other hosts (Linux, VPS) work stru
 
 | Variable | Purpose | Current |
 |----------|---------|---------|
-| `{PAI-version}` | PAI framework version | `4.0.3` |
-| `{Algorithm-version}` | Algorithm version | `v3.5.0` |
+| `{PAI-version}` | PAI framework version | `5.0.0` |
+| `{Algorithm-version}` | Algorithm version | `v6.4.0` |
 | `{PAI-repo}` | PAI source repository | `github.com/danielmiessler/PAI` |
-| `{OpenClaw-version}` | OpenClaw version tag | Date-based, e.g. `2026.4.x`. Don't pin in docs — describe as "current stable at install time". |
+| `{OpenClaw-version}` | OpenClaw version tag | Date-based, e.g. `2026.5.x`. Don't pin in docs — describe as "current stable at install time". |
 
 ---
 
-## Security Variables (used in 03-SECURITY-MODEL.md)
+## Security Variables (used in 02-PAI-CUSTOMIZATION-LAYER.md and 03-SECURITY-MODEL.md)
 
 | Variable | Purpose | Notes |
 |----------|---------|-------|
+| `{Allowed-Tool-Pattern-1}` / `{Allowed-Tool-Pattern-2}` | `permissions.allow` entries (everyday ops that run without prompting) | e.g., `Read(~/Projects/**)`, `Bash(bun test:*)` |
+| `{Denied-Tool-Pattern-1}` | `permissions.deny` entry (never executes) | e.g., `Read(~/.ssh/id_*)` |
+| `{Allowed-Pattern-1}` / `{Allowed-Pattern-2}` / `{Allowed-Pattern-3}` | `permissions.allow` entries (03's examples) | Same shape as above |
+| `{Denied-Pattern-1}` / `{Denied-Pattern-2}` | `permissions.deny` entries (03's examples) | Same shape as above |
 | `{Ask-Pattern-Force-Push}` | Ask pattern for force push | e.g., `Bash(git push --force:*)` |
 | `{Ask-Pattern-Credential-Read}` | Ask pattern for credential reads | e.g., `Read(~/.ssh/id_*)` |
 | `{Ask-Pattern-Settings-Modify}` | Ask pattern for settings changes | e.g., `Write(~/.claude/settings.json)` |
@@ -185,7 +192,7 @@ The reference triad runs every host on macOS. Other hosts (Linux, VPS) work stru
 | `{services-suffix}` | Suffix for services Syncthing folder | Used in folder naming |
 | `{openclaw-suffix}` | Lowercase suffix for OpenClaw folder | Used in path examples |
 | `{new-version}` | Target version for OpenClaw updates | Used in update docs |
-| `{InterAgent-Tool}` | Inter-agent channel CLI tool (the wrapper that does SSH→loopback WebSocket) | e.g., `~/.claude/skills/{OpenClaw-agent}Channel/Tools/{OpenClaw-agent-lowercase}-channel.sh` |
+| `{InterAgent-Tool}` | Inter-agent channel CLI tool (the wrapper that does SSH→loopback WebSocket). Lives in a personal `_ALLCAPS` channel skill | e.g., `~/.claude/skills/_{OPENCLAW-AGENT-NAME}_CHANNEL/Tools/{OpenClaw-agent-lowercase}-channel.sh` |
 | `{Heartbeat-Interval}` | Heartbeat cron interval for `{OpenClaw-agent}` | e.g., `60m` |
 | `{principal-uppercase}` | Uppercase form of `{principal}` (used in relay format `[{principal-uppercase} ONLY]` opt-out marker) | e.g., `BEN` |
 | `{services-backups-dir}` | Backup landing directory on services machine | May differ from `{PAI-backups-dir}` |

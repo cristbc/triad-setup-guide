@@ -28,7 +28,7 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 - [ ] Connect all machines to LAN (Ethernet preferred)
 - [ ] Assign or reserve IP addresses for each machine
 - [ ] Install Tailscale on all machines, authenticate to same account
-- [ ] Enable Tailscale SSH on machines needing remote access
+- [ ] Leave Tailscale SSH (RunSSH) **disabled** — use key-based SSH *over* the Tailscale tunnel, never Tailscale's browser-auth SSH (it blocks automation)
 - [ ] Generate and distribute SSH keys per `SECRETS-SETUP.md`
 - [ ] Configure `~/.ssh/config` on `{PAI-machine}` with host aliases
 - [ ] Restrict automation SSH key to `{LAN-subnet}` in authorized_keys
@@ -37,7 +37,7 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 - [ ] Pair all Syncthing devices through `{PAI-machine}` hub
 - [ ] Configure `{OpenClaw-machine}` for headless operation (lid-close, network, encryption)
 
-**Gate:** `ssh {OpenClaw-machine}` works from `{PAI-machine}`. Syncthing test file appears on all paired machines. Tailscale SSH works from outside LAN.
+**Gate:** `ssh {OpenClaw-machine}` works from `{PAI-machine}`. Syncthing test file appears on all paired machines. Key-based SSH over Tailscale connects from outside the LAN with no browser prompt (RunSSH stays off).
 
 ---
 
@@ -52,7 +52,7 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
   - [ ] `principal` block (name, timezone)
   - [ ] `env` paths (`PAI_DIR`, `PROJECTS_DIR`)
   - [ ] `permissions` (allow, deny, ask lists)
-  - [ ] `contextFiles` (SKILL.md, steering rules, identity)
+  - [ ] context load chain (CLAUDE.md + `@`-imported identity/TELOS, `PAI_SYSTEM_PROMPT.md` force-loaded)
 - [ ] Set up hook system:
   - [ ] SecurityValidator on PreToolUse (Bash, Edit, Write, Read)
   - [ ] FormatReminder on UserPromptSubmit
@@ -61,9 +61,9 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 - [ ] Configure voice server:
   - [ ] Install and start your voice server (whatever implementation you've chosen)
   - [ ] Verify it responds using its own documented test command — not a hard-coded endpoint, since voice server interfaces vary by implementation
-- [ ] Create DAIDENTITY.md with your DA's personality and voice conventions
-- [ ] Create or customize AI Steering Rules (SYSTEM + USER)
-- [ ] Set up memory directories (WORK/, LEARNING/, STATE/, RESEARCH/)
+- [ ] Create `DA_IDENTITY.md` with your DA's personality and voice conventions (`@`-imported by CLAUDE.md)
+- [ ] Create or customize behavioral rules: constitutional in `PAI_SYSTEM_PROMPT.md` (force-loaded), operational in `CLAUDE.md`
+- [ ] Set up memory directories (WORK/, KNOWLEDGE/, LEARNING/, OBSERVABILITY/, STATE/)
 - [ ] Verify skills load correctly (start a session, check context injection)
 
 **Gate:** New Claude Code session starts, context loads, voice greeting plays, SecurityValidator blocks a test dangerous command, FormatReminder enforces Algorithm format.
@@ -79,7 +79,7 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 - [ ] Verify BLOCK level: test with a destructive command (should be blocked)
 - [ ] Verify CONFIRM level: test with force push (should prompt for approval)
 - [ ] Verify ALERT level: test with an unusual but allowed operation
-- [ ] Confirm security event logging: check `MEMORY/SECURITY/` for log entries
+- [ ] Confirm security/tool-activity logging: check `MEMORY/OBSERVABILITY/*.jsonl` for entries
 - [ ] Review `settings.json` ask patterns — add any that concern you
 - [ ] Verify no credentials in git: `git status` shows no secret files tracked
 
@@ -108,7 +108,7 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 
 **Read:** `05-COMMUNICATION-PROTOCOLS.md`
 
-- [ ] Install inter-agent channel tool on `{PAI-machine}` (adapt the OrphuChannel reference skill for your `{OpenClaw-agent}`)
+- [ ] Install inter-agent channel tool on `{PAI-machine}` (adapt the `_ORPHU_CHANNEL` reference skill for your `{OpenClaw-agent}`)
 - [ ] Configure gateway token in channel tool
 - [ ] Configure gateway token in OpenClaw gateway (`~/.openclaw/openclaw.json`)
 - [ ] Configure SSH alias for `{OpenClaw-agent-lowercase}@{OpenClaw-machine}` with LAN→Tailscale fallback
@@ -157,7 +157,7 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 - [ ] Create the workspace directory layout on `{OpenClaw-machine}`: `{Agent-comms-inbox}/`, `{Agent-comms-archive}/`, `{Agent-wip-dir}/`, `drafts/`, `notes/`, `memory/`
 - [ ] Write initial `{Agent-workspace-dir}/CURRENT-TASK.md` with status `IDLE` and the required fields (status, owner, assigned_by, brief, last_checkpoint_utc, next_action, artifacts_path)
 - [ ] Write initial `{Agent-workspace-dir}/HEARTBEAT.md` as a checklist (max ~60 lines — procedure, not knowledge base)
-- [ ] Configure `agents.defaults.heartbeat` in `~/.openclaw/openclaw.json` with `interval`, `model`, `session: main`
+- [ ] Configure `agents.defaults.heartbeat` in `~/.openclaw/openclaw.json` with the cadence, a cheap current model, and an **isolated** session (keeps the heartbeat's cheap model from bleeding into the main session); exact key names vary by release — `openclaw configure` is authoritative
 - [ ] Wait for one heartbeat cycle and confirm it runs without errors (check gateway logs)
 - [ ] Confirm heartbeat is silent when nothing is noteworthy (no spurious posts)
 - [ ] Test file-first tasking: `{PAI-agent}` writes a brief to `{Agent-comms-inbox}/{PAI-AGENT-NAME}-TO-{OPENCLAW-AGENT-NAME}-test.md`, sends a wake signal via `{InterAgent-Tool} send`, confirm `{OpenClaw-agent}` reads the brief, transitions CURRENT-TASK.md to `IN_PROGRESS`, produces an artifact in `{Agent-wip-dir}/test/`, and archives the brief
@@ -196,10 +196,10 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 | SSH config | `~/.ssh/config` on `{PAI-machine}` | 01 |
 | Syncthing folders | Per hub-and-spoke topology | 01 |
 | settings.json | `{PAI-dir}/settings.json` | 02 |
-| Security patterns | `{PAI-dir}/skills/PAI/USER/PAISECURITYSYSTEM/` | 03 |
+| Security patterns | `{PAI-dir}/hooks/security/` (inspectors) + `{PAI-dir}/USER/SECURITY/PATTERNS.yaml` (your patterns) | 03 |
 | PAI backup | macOS LaunchAgent → daily snapshot to `{PAI-backups-dir}` | 04 |
 | OpenClaw backup | `openclaw backup create --verify` → weekly LaunchAgent on `{OpenClaw-machine}` | 04 |
-| Channel tool | A skill on `{PAI-machine}` (adapted from OrphuChannel reference) | 05 |
+| Channel tool | A skill on `{PAI-machine}` (adapted from `_ORPHU_CHANNEL` reference) | 05 |
 | Gateway token | `~/.openclaw/openclaw.json` on `{OpenClaw-machine}` and the channel tool's secret store on `{PAI-machine}` | 05 / 07 |
 | Telegram topic IDs | Stored as `{Telegram-Topic-Relay/Ops/Alerts}` in your VARIABLES.md (private) | 05 |
 | Identity files (SOUL/IDENTITY/MEMORY/USER) | Inside `{Agent-workspace-dir}/` on `{OpenClaw-machine}` | 07 |

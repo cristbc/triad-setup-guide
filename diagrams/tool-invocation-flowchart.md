@@ -17,7 +17,7 @@ flowchart TD
     MATCH -->|"matches ALERT pattern"| ALERT
     MATCH -->|"no pattern match"| DEFAULT
 
-    BLOCK["BLOCK<br/>tool call rejected<br/>logged to MEMORY/SECURITY<br/>principal not prompted"]
+    BLOCK["BLOCK<br/>tool call rejected<br/>logged to MEMORY/OBSERVABILITY<br/>principal not prompted"]
     CONFIRM["CONFIRM<br/>principal prompted<br/>(AskUserQuestion with consequences)"]
     ALLOW["ALLOW<br/>tool call proceeds silently"]
     ALERT["ALERT<br/>tool call proceeds<br/>but logged + announced"]
@@ -58,4 +58,4 @@ flowchart TD
 - **CONFIRM** is the explicit consent path: the principal sees the action plus its consequences (force push will rewrite remote history, credential read exposes the file contents, etc.) and approves or denies.
 - **ALERT** allows the action but creates an audit trail and a notification — useful for "I want to know this happened but it's not worth blocking."
 - The default is ALLOW for everyday operations (file reads in the project, normal `git status`, etc.) and CONFIRM for sensitive paths (anything in `~/.ssh/`, `~/.openclaw/`, `settings.json`).
-- Patterns live in `{PAI-Dir}/skills/PAI/USER/PAISECURITYSYSTEM/` so they survive PAI upgrades. (Template variable braces are intentionally NOT used inside the diagram nodes themselves because Mermaid parses `{...}` as a rhombus shape delimiter — the reading notes and body text are where variables go.)
+- Patterns live in `{PAI-Dir}/hooks/security/` (the inspectors) and `{PAI-Dir}/USER/SECURITY/PATTERNS.yaml` (your customizable patterns) so they survive PAI upgrades. (Template variable braces are intentionally NOT used inside the diagram nodes themselves because Mermaid parses `{...}` as a rhombus shape delimiter — the reading notes and body text are where variables go.)

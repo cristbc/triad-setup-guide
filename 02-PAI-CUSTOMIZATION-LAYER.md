@@ -99,9 +99,9 @@ When a session starts, the following load automatically:
 
 1. **CLAUDE.md** (`{PAI-Dir}/CLAUDE.md`) — the runtime entry point that Claude Code loads on every session. Defines mode classification (NATIVE / ALGORITHM / MINIMAL), output format requirements, and the pointer to the Algorithm file
 2. **The Algorithm** (`{PAI-framework-dir}/Algorithm/{Algorithm-version}.md`) — loaded by CLAUDE.md when ALGORITHM mode is selected. Defines the 7-phase OBSERVE→LEARN execution model, ISC decomposition methodology, capability invocation rules, and effort tiers
-3. **AI Steering Rules** — `SYSTEM/AISTEERINGRULES.md` (universal, force-loaded) + `USER/AISTEERINGRULES.md` (personal overrides), concatenated at runtime
-4. **DAIDENTITY.md** (`{PAI-Dir}/USER/DAIDENTITY.md`) — my personality, voice configuration, and pronoun rules
-5. **MEMORY.md** — auto-loaded persistent memory, indexed by topic-specific memory files in the same directory
+3. **The System Prompt** (`{PAI-Dir}/PAI_SYSTEM_PROMPT.md`) — constitutional, force-loaded via `--append-system-prompt-file`. The highest-authority behavioral layer (verify-before-claiming, read-before-modifying, security protocol, output-format enforcement). It survives compaction
+4. **Identity & core context (@-imports)** — CLAUDE.md `@`-imports my identity and standing context every session: `USER/DA_IDENTITY.md` (my personality, voice configuration, pronoun rules), `USER/PRINCIPAL_IDENTITY.md` (who my principal is), the project registry, and TELOS (mission/goals)
+5. **Dynamic context** — a SessionStart hook injects ephemeral state (recent relationship notes, learning signals, the latest pre-compaction handoff)
 
 Per-skill `SKILL.md` files are *not* loaded at session start — they live inside `{PAI-Dir}/skills/{Skill-Name}/SKILL.md` and load on demand when their trigger phrases fire. Don't conflate the per-skill `SKILL.md` (a routing manifest for one skill) with CLAUDE.md (the global entry point) or with the Algorithm file (the execution model).
 
@@ -165,7 +165,7 @@ The following Claude Code hook events drive my customization layer. Other events
 | **SessionStart** | Session begins | Required | Startup voice announcement, load identity, initialize state |
 | **UserPromptSubmit** | User sends a message | Required | Format reminder with AI-powered depth classification, skill hints |
 | **PreToolUse** | Before any tool executes | Required | SecurityValidator (on Bash, Edit, Write, Read) |
-| **PostToolUse** | After any tool executes | Required | Logging, state updates, PRD frontmatter sync |
+| **PostToolUse** | After any tool executes | Required | Logging, state updates, ISA frontmatter sync |
 | **SubagentStop** | Subagent completes | Optional | Result capture, agent coordination |
 | **Stop** | Response generation completes | Required | Orchestrated post-response processing (voice, capture, tab state) |
 | **SessionEnd** | Session terminates | Optional | Session summary, cleanup, learning capture |
@@ -175,11 +175,11 @@ The following Claude Code hook events drive my customization layer. Other events
 **SecurityValidator (PreToolUse)**
 Runs before every Bash, Edit, Write, and Read invocation. Evaluates the tool call against configurable security patterns. Can block, warn, or allow. Described in detail in the Security Model document.
 
-**FormatReminder (UserPromptSubmit)**
-Uses AI inference (standard tier) to classify every incoming prompt into a depth level (FULL, ITERATION, MINIMAL). Also suggests capabilities, skills, and thinking tools as draft hints for the Algorithm's two-pass selection process. Its depth classification is authoritative --- I do not override it.
+**PromptProcessing / Mode Classifier (UserPromptSubmit)**
+A Sonnet classifier reads every incoming prompt and writes a single decision into the session context: a **MODE** (`MINIMAL` / `NATIVE` / `ALGORITHM`) and, when the mode is `ALGORITHM`, an effort **TIER** (`E1`–`E5`). I read that line and obey it. The classification is authoritative — I escalate only on conversation-context grounds the classifier couldn't see (e.g. a one-word "yes" approving a multi-step plan).
 
-**PRD Lifecycle Hooks (SessionStart + PostToolUse)**
-The Algorithm uses a PRD (Product Requirements Document) per task, written by me directly into `{PAI-Dir}/MEMORY/WORK/{slug}/PRD.md` during the OBSERVE phase. SessionStart hooks surface the registry of in-flight PRDs so I can resume; a read-only PostToolUse hook (PRDSync) syncs the PRD's frontmatter and ISC checkboxes into a JSON registry at `{PAI-Dir}/MEMORY/STATE/work.json` for the dashboard. **Hooks never write to PRD.md — I am the sole writer.** Every phase transition, every criterion check, every progress update is my responsibility via Edit/Write tools directly.
+**ISA Lifecycle Hooks (SessionStart + PostToolUse)**
+The Algorithm uses an ISA (Ideal State Artifact) per task or per project, written by me directly into `{PAI-Dir}/MEMORY/WORK/{slug}/ISA.md` (task) or `<project>/ISA.md` (project) during the OBSERVE phase. SessionStart hooks surface the registry of in-flight ISAs so I can resume; a read-only PostToolUse hook (ISASync) syncs the ISA's frontmatter (`phase`, `progress`) and ISC checkboxes into a JSON registry at `{PAI-Dir}/MEMORY/STATE/work.json` for the dashboard. **Hooks never write to ISA.md — I am the sole writer.** Every phase transition, every criterion check, every progress update is my responsibility via Edit/Write tools directly.
 
 **Rating Capture (Stop)**
 Captures both explicit ratings (when my principal says a number 1--10) and implicit sentiment ratings (inferred from response tone and engagement). These feed into the LEARNING system for continuous improvement.
@@ -272,14 +272,16 @@ My memory is organized into purpose-specific directories under `{PAI-Dir}/MEMORY
 
 | Directory | Purpose | Written By |
 |-----------|---------|------------|
-| **WORK/{slug}/** | Task tracking — one *directory* per task containing `PRD.md` (frontmatter + Context, Criteria, Decisions, Verification sections) and any task-specific artifacts | Me directly via Edit/Write during the Algorithm's 7 phases |
+| **WORK/{slug}/** | Task tracking — one *directory* per task containing `ISA.md` (frontmatter + the twelve ISA sections: Problem, Vision, Out of Scope, Principles, Constraints, Goal, Criteria, Test Strategy, Features, Decisions, Changelog, Verification) and any task-specific artifacts | Me directly via Edit/Write during the Algorithm's 7 phases |
+| **KNOWLEDGE/** | Durable, cross-linked knowledge archive (People, Companies, Ideas, Research) that compounds across sessions | KnowledgeHarvester + me |
 | **LEARNING/** | Categorized learnings from sessions | SessionEnd hook, rating capture |
 | **LEARNING/SYSTEM/** | System-level learnings (PAI behavior, hooks, infrastructure) | Hooks |
-| **LEARNING/ALGORITHM/** | Algorithm execution learnings (what depth was right, what was missed) | Hooks |
+| **LEARNING/ALGORITHM/** | Algorithm execution learnings (what tier was right, what was missed) | Hooks |
 | **LEARNING/FAILURES/** | Post-mortems on what went wrong | Manual capture |
 | **LEARNING/SIGNALS/** | Rating data --- explicit scores and implicit sentiment | Rating capture hook |
-| **STATE/** | Runtime state — `work.json` registry (synced from PRDs by a read-only hook), caches, location, weather | Hooks (read-only with respect to PRD content) |
-| **RESEARCH/** | Captured output from research agents and subagents | SubagentStop hook |
+| **OBSERVABILITY/** | Tool-activity and tool-failure telemetry (`*.jsonl`) feeding the dashboard | Observability hooks |
+| **STATE/** | Runtime state — `work.json` registry (synced from ISAs by a read-only hook), caches, location, weather | Hooks (read-only with respect to ISA content) |
+| **RESEARCH/** | Persistent vault for Deep-Investigation research threads | Research skill |
 
 ### How Memory Flows
 
@@ -290,16 +292,16 @@ My memory is organized into purpose-specific directories under `{PAI-Dir}/MEMORY
 
 ---
 
-## AI Steering Rules
+## Behavioral Rules (System Prompt + CLAUDE.md)
 
-Steering rules are behavioral constraints that govern how I operate. They are not the Algorithm (which defines process) --- they define principles.
+Behavioral rules govern how I operate. They are not the Algorithm (which defines process) --- they define principles. In PAI 5 they live in two layers, not in a standalone steering-rules file:
 
 ### Architecture
 
-- **SYSTEM rules** (`SYSTEM/AISTEERINGRULES.md`): Universal. Always active. Cannot be overridden. These define foundational behaviors like "verify before claiming" and "read before modifying."
-- **USER rules** (`USER/AISTEERINGRULES.md`): Personal customizations. Extend SYSTEM rules. Can override SYSTEM rules for user-specific behaviors.
+- **Constitutional rules** (`PAI_SYSTEM_PROMPT.md`): Universal, force-loaded via `--append-system-prompt-file`, highest authority, survive compaction. These define foundational, non-negotiable behaviors like "verify before claiming," "read before modifying," the security protocol, and output-format enforcement.
+- **Operational rules** (`CLAUDE.md`): Tool preferences, conventions, format templates, and context routing. The constitutional layer outranks this one when they ever conflict.
 
-Both files concatenate at runtime. SYSTEM loads first, USER extends.
+The system prompt loads first as the highest layer; CLAUDE.md and the `@`-imported identity/context files extend it.
 
 ### Key Rules
 
@@ -315,11 +317,11 @@ These rules are the safety net beneath the Algorithm. Even if the Algorithm's pr
 
 ---
 
-## Identity Configuration (DAIDENTITY.md)
+## Identity Configuration (DA_IDENTITY.md)
 
 ### What It Contains
 
-My identity file defines my personality, voice, and relational model. It lives at `{PAI-Dir}/USER/DAIDENTITY.md`.
+My identity file defines my personality, voice, and relational model. It lives at `{PAI-Dir}/USER/DA_IDENTITY.md` and is `@`-imported by CLAUDE.md at session start.
 
 ### Personality Traits
 
@@ -356,18 +358,18 @@ Before considering the customization layer complete, verify each item:
 - [ ] The Algorithm file exists at `{PAI-framework-dir}/Algorithm/{Algorithm-version}.md`
 - [ ] `settings.json` exists at `{PAI-Dir}/settings.json` with all required blocks (daidentity, principal, environment, preferences, permissions)
 - [ ] `voiceId` is set and the voice server responds at `localhost:{Voice-Server-Port}` using its documented test command
-- [ ] `DAIDENTITY.md` exists at `{PAI-Dir}/USER/DAIDENTITY.md` with personality traits and voice convention
-- [ ] AI Steering Rules exist at both `SYSTEM/AISTEERINGRULES.md` and `USER/AISTEERINGRULES.md`
+- [ ] `DA_IDENTITY.md` exists at `{PAI-Dir}/USER/DA_IDENTITY.md` with personality traits and voice convention, and is `@`-imported by CLAUDE.md
+- [ ] Constitutional rules exist in `PAI_SYSTEM_PROMPT.md` (force-loaded) and operational rules in `CLAUDE.md`
 - [ ] All hook lifecycle events I rely on (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStop, Stop, SessionEnd) are registered and fire correctly (test with a fresh session)
 - [ ] SecurityValidator hook intercepts Bash, Edit, Write, and Read tool calls
-- [ ] FormatReminder hook classifies depth and returns capability/skill/thinking hints
+- [ ] Mode classifier hook classifies each prompt into MODE (MINIMAL/NATIVE/ALGORITHM) + TIER (E1–E5)
 - [ ] StopOrchestrator runs voice, capture, and tab-state handlers after each response
-- [ ] PRDSync hook updates `{PAI-Dir}/MEMORY/STATE/work.json` after PRD edits (read-only with respect to PRD.md itself)
+- [ ] ISASync hook updates `{PAI-Dir}/MEMORY/STATE/work.json` after ISA edits (read-only with respect to ISA.md itself)
 - [ ] Inference.ts responds at all three tiers (fast, standard, smart) — `bun {PAI-Dir}/Tools/Inference.ts fast|standard|smart`
 - [ ] At least one custom skill exists in `{PAI-Dir}/skills/` with proper structure (SKILL.md, Workflows/, Tools/)
-- [ ] MEMORY directories exist: WORK/, LEARNING/, STATE/, RESEARCH/
+- [ ] MEMORY directories exist: WORK/, KNOWLEDGE/, LEARNING/, OBSERVABILITY/, STATE/
 - [ ] LEARNING subdirectories exist: SYSTEM/, ALGORITHM/, FAILURES/, SIGNALS/
-- [ ] A WORK/{slug}/PRD.md exists from at least one completed task and has all required frontmatter fields (task, slug, effort, phase, progress, mode, started, updated)
+- [ ] A WORK/{slug}/ISA.md exists from at least one completed task and has all required frontmatter fields (task, slug, effort, phase, progress, mode, started, updated)
 - [ ] Tab title updates on session start
 - [ ] Startup catchphrase plays on first session
 - [ ] A test rating (explicit number 1--10) is captured to LEARNING/SIGNALS/

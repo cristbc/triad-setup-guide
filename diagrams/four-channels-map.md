@@ -46,7 +46,7 @@ graph LR
     PAI <-->|"local Syncthing"| WS
     WS <-->|"remote Syncthing"| OC
 
-    PRIN -.->|"human-gated relay<br/>[ORPHU→VERBUM]<br/>paste back to Claude Code"| PAI
+    PRIN -.->|"human-gated relay<br/>[{OPENCLAW-AGENT-NAME}→{PAI-AGENT-NAME}]<br/>paste back to Claude Code"| PAI
 
     style PAI fill:#1E40AF,stroke:#3B82F6,color:#F9FAFB,stroke-width:2px
     style OC fill:#7C2D12,stroke:#F97316,color:#F9FAFB,stroke-width:2px

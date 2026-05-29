@@ -43,21 +43,22 @@ Tailscale provides encrypted mesh networking for when `{principal}` is away from
 **Setup per machine:**
 1. Install Tailscale
 2. `tailscale up` and authenticate
-3. Enable Tailscale SSH: `tailscale up --ssh`
-4. Record the assigned Tailscale IP
+3. Record the assigned Tailscale IP
+4. **Leave Tailscale SSH OFF** — do *not* run `tailscale up --ssh`. See the warning below.
 
 **What Tailscale gives me:**
 - Encrypted connectivity from anywhere (coffee shop, travel) without port forwarding
-- Tailscale SSH means I can reach machines without managing SSH keys for remote access
 - Stable addresses even when LAN IPs change
 - MagicDNS for hostname resolution across the tailnet
+- A second network path so my (key-based) SSH keeps working when the LAN drops
 
-**My connection preference order:**
+> **Do NOT enable Tailscale SSH (RunSSH).** "Tailscale SSH" — the feature you turn on with `tailscale up --ssh` — makes Tailscale *intercept* SSH and do browser-based identity re-auth. That blocks unattended automation: the inter-agent channel tool, cron jobs, and backups all hang waiting for a browser that never opens. The fleet standard is the opposite — **SSH *over* Tailscale**: a normal `sshd` with key authentication, where Tailscale only provides the encrypted tunnel. Same `ssh` command, the key does the auth, no browser hand-off. Keep RunSSH **disabled** on every machine.
+
+**My connection preference order (key-based SSH throughout):**
 1. LAN IP (fastest, no overhead)
-2. Tailscale IP (encrypted, works anywhere)
-3. Tailscale SSH (no key management)
+2. Tailscale IP (encrypted, works anywhere) — the *same* key-based SSH, riding the Tailscale tunnel
 
-I always try LAN first, fall back to Tailscale. My inter-agent channel tool does this automatically.
+I always try LAN first, fall back to Tailscale. My inter-agent channel tool does this automatically via a `Match exec` block in `~/.ssh/config`.
 
 ---
 
@@ -112,7 +113,7 @@ I use a dotfile-forwarding tool (like kyrat or similar) so my shell preferences 
 
 ## Syncthing — Hub-and-Spoke File Sync
 
-Syncthing provides real-time, peer-to-peer file synchronization over LAN. I use it for:
+Syncthing provides real-time, peer-to-peer file synchronization over LAN. I drive it through a CLI-first `Syncthing` skill (`syncthing cli ...` wrappers for device pairing, folder sharing, and sync monitoring) so device/folder management is scriptable, not click-through. I use it for:
 - Exchanging files with `{OpenClaw-agent}`
 - Distributing delegation jobs to `{worker-machine}`
 - Backing up PAI framework to `{services-machine}`
@@ -173,7 +174,9 @@ systemctl --user enable --now syncthing.service
 
 **Important:** After an OS reinstall on any spoke, you must re-pair. The device ID changes and the old pairing is invalid.
 
-**Maintenance tip:** Review your Syncthing shared folders periodically. Zombie syncs — folders still configured to sync with devices that no longer exist — waste resources and generate spurious warnings. Prune any dead device pairings and remove orphaned folder configurations.
+**Maintenance gotcha — deletion does NOT propagate.** Syncthing does not push a device/folder *removal* to peers. If you tear a spoke down on the hub, every other node that knew it keeps a stale device/folder entry live — wasting resources and generating spurious warnings for weeks until someone notices. After removing ANY device or folder, sweep every remaining node (`syncthing cli config devices list` on each, cross-referenced) and delete the orphan entries by hand. Do this as part of the teardown, not "later."
+
+**Do NOT sync active git repos through Syncthing.** It replicates byte-for-byte with no lock semantics, so concurrent `.git/` writes across machines corrupt `.git/index` and spawn `sync-conflict-*` objects. Keep any git working tree (e.g. the agent's config repo) *outside* the synced folder; let git be the sole sync mechanism for code.
 
 ---
 
@@ -235,7 +238,7 @@ After completing this section, confirm:
 
 - [ ] All machines reachable via LAN IP from `{PAI-machine}`
 - [ ] Tailscale installed and authenticated on all machines
-- [ ] Tailscale SSH working: `ssh {principal}@{OpenClaw-TS-IP}`
+- [ ] Key-based SSH over Tailscale works when off-LAN: `ssh {OpenClaw-machine}` falls through to the Tailscale IP and connects with no browser prompt (Tailscale SSH / RunSSH stays OFF)
 - [ ] SSH automation key connects without password to all targets
 - [ ] SSH config resolves hostnames: `ssh {OpenClaw-machine}` works
 - [ ] Syncthing running on all machines

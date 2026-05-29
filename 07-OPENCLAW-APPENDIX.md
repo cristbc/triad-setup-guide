@@ -158,7 +158,7 @@ ssh {OpenClaw-agent-lowercase} "launchctl bootstrap gui/\$(id -u) \
 
 ## Section 4: Identity, Soul Documents, and Workspace Layout
 
-`{OpenClaw-agent}` needs identity configuration, just like `{PAI-agent}` has DAIDENTITY.md. On macOS the agent's runtime workspace lives at `{Agent-workspace-dir}` under the agent user's home directory, and identity files are inside that workspace (so they sync along with everything else the agent produces).
+`{OpenClaw-agent}` needs identity configuration, just like `{PAI-agent}` has `DA_IDENTITY.md`. On macOS the agent's runtime workspace lives at `{Agent-workspace-dir}` under the agent user's home directory, and identity files are inside that workspace (so they sync along with everything else the agent produces).
 
 **Workspace layout:**
 
@@ -265,17 +265,19 @@ Configure the trigger via `openclaw configure` or by editing `openclaw.json` dir
   "defaults": {
     "heartbeat": {
       "interval": "{Heartbeat-Interval}",
-      "model": "openai-codex/gpt-5.2",
-      "session": "main"
+      "model": "<cheapest current model that handles the checklist>",
+      "isolatedSession": true
     }
   }
 }
 ```
 
 **Field choices:**
-- **`interval`** — the cadence (`60m` is a good default; shorter wastes tokens, longer means slower intake)
-- **`model`** — use the cheapest model that can handle the heartbeat checklist. GPT-5.2 on Codex OAuth works
-- **`session`** — `main` reuses the agent's primary session so the heartbeat has context of prior work; `isolated` creates a fresh session each cycle (cheaper but no continuity)
+- **interval / cadence** — `60m` is a good default; shorter wastes tokens, longer means slower intake. **Do not set it to `0` / disabled** — a zero interval silently breaks the cron-delivery path too, and the failure is invisible until you notice the agent has gone quiet.
+- **model** — use the cheapest *current* model that can handle the heartbeat checklist (a mini/small-tier model). Don't hard-pin a version string that may not exist at your install time; pick from `openclaw models list`.
+- **isolated session** — prefer running the heartbeat in an **isolated** session, not the agent's main one. The heartbeat usually runs on a cheaper model than your real work; sharing the main session lets that cheap model "bleed" into your primary context. Isolation keeps it out of the main thread.
+
+> Exact config key names (`interval` vs `every`, `session` vs `isolatedSession`) drift between OpenClaw releases. `openclaw configure` is the safe way to set these — it writes whatever the current schema expects. Treat the JSON above as *shape*, not gospel.
 
 ### What the Heartbeat Does
 
@@ -351,6 +353,8 @@ ssh {OpenClaw-agent-lowercase} "curl -s http://127.0.0.1:{gateway-port}/health"
 
 **SAFETY reminder:** Do NOT call `openclaw status`, `openclaw cron list`, `openclaw sessions list`, or `openclaw models list` from automated SSH — they can trigger token refresh and corrupt `auth-profiles.json`. Use them only from interactive SSH sessions.
 
+**Log locations (verify against your release):** the gateway writes a human-readable log and a structured JSON log to live sinks (paths move between releases — check the current ones with `openclaw doctor` or the release notes). **Gotcha:** older log paths under the config dir can *freeze* after a version bump while logging silently moves elsewhere — a frozen log reports a FALSE clean. When debugging, confirm you're tailing a file with a current modification time; never trust a log that stopped updating.
+
 ### Silent Failure Mitigation
 
 When OAuth tokens expire, the heartbeat fires on schedule but every model call fails. No alert is generated (alerting *is* the heartbeat). This can persist for days unnoticed unless you notice the agent has gone silent.
@@ -410,6 +414,7 @@ ssh {OpenClaw-agent-lowercase} "export PATH=/opt/homebrew/bin:\$PATH && \
 - **`gateway install --force` after every update.** The plist is regenerated to match the new binary path. Skipping this leaves the LaunchAgent pointing at the old binary.
 - **`doctor --fix` after `gateway install --force`.** Migrates schema changes, removes stale plugin configs, writes a config backup at `~/.openclaw/openclaw.json.bak`. Keep that backup until you've confirmed the upgrade is healthy.
 - **`kickstart -k` only works when the service is loaded.** If you `bootout`, you must `bootstrap` again (or `gateway install --force` does it for you) before `kickstart` will work.
+- **Re-sync the standalone codex extension after EVERY core upgrade.** `npm install -g openclaw@<version>` upgrades the core but does **not** update the separately-installed `@openclaw/codex` extension. A core↔extension version skew throws an initialization error in the agent-turn path and *silently* routes every turn to a fallback model — and `/health` stays green the whole time. After any core upgrade, reinstall the codex extension at the matching version, then verify the primary model is actually winning (confirm fallback attempts are empty in a fresh session — `/health` being OK is not enough).
 
 ### `min-release-age` Safety Lock
 

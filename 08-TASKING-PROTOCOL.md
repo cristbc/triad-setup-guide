@@ -1,5 +1,7 @@
 # 08 — Tasking Protocol
 
+*Doctrine version: v1.2 — file-first tasking, channel-per-intent, bounded-turn execution.*
+
 This is the operational doctrine that ties together the channels (`05`), the multi-agent coordination patterns (`06`), and the OpenClaw runtime (`07`). Without this doctrine you can have everything technically wired up and still hit multi-channel confusion, lost briefs, resume loops, and 3-hour silent stalls. Every rule in this file exists because the absence of it caused a real incident.
 
 Read this last, but read this. The minimum viable triad runs on these principles:
@@ -375,6 +377,29 @@ The heartbeat compares `last_checkpoint_utc` in CURRENT-TASK.md against the prev
 - State history: last 10 entries only. Older entries go to `memory/task-history.md`.
 - `batch_progress`: last 3 entries only.
 - No diagnosis or evidence sections. Those belong in `{Agent-wip-dir}/` artifacts.
+
+### Anti-Pattern 6: The Async Promise
+
+**What happened:** `{PAI-agent}` told `{OpenClaw-agent}` to "work on this async" and deliver "one consolidated result, no drip updates." The agent replied with a confident acknowledgment — and produced **zero tool calls and zero file writes**. Nothing happened.
+
+**Root cause — bounded-turn architecture.** Each gateway dispatch is exactly *one* bounded LLM turn. There is no background executor that keeps running after the turn ends. So "async" has no architectural meaning: if the work doesn't happen *inside the turn you dispatched*, it doesn't happen at all. "I'll get to it" is not a state the runtime can hold.
+
+**Fix:**
+
+- Scope each gateway dispatch to what fits in one bounded turn ("In this turn, do X now").
+- Never say "work on this async" or "one consolidated delivery later." Drive multi-step work as a sequence of bounded turns (PM mode), verifying between each.
+- If the work is genuinely long-running, it belongs in a file brief the agent picks up and advances one checkpoint per turn — not a fire-and-forget promise.
+
+### Anti-Pattern 7: Trusting Text Over the Filesystem After a Timeout
+
+**What happened:** A gateway dispatch timed out. The reply stream was cancelled, so `{PAI-agent}` assumed the work hadn't happened and re-sent the brief — double-applying a partially-completed task.
+
+**Root cause:** A gateway timeout cancels the *reply stream*, but it does **not** roll back tool calls that already executed mid-turn. Partial success is common: files may already be written even though no confirmation came back. Worse, agents sometimes *report* a successful write that isn't actually on disk (a hallucinated confirmation).
+
+**Fix:**
+
+- After ANY gateway timeout, SSH in and verify filesystem state *before* re-sending — check whether `CURRENT-TASK.md` advanced and whether expected artifacts exist in `{Agent-wip-dir}/`.
+- Verify the filesystem after *every* dispatch the agent claims to have completed, not only after timeouts. Trust the disk, not the text.
 
 ---
 

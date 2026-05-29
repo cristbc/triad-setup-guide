@@ -80,7 +80,7 @@ All diagrams are Mermaid sources stored as `.md` files in `diagrams/`. Each chap
 
 ## Built With
 
-- [PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/PAI) v4.x
+- [PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/PAI) v5.x
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) by Anthropic
 - [OpenClaw](https://github.com/openclaw/openclaw) for the GPT agent
 - [Tailscale](https://tailscale.com/) for secure networking
@@ -88,6 +88,6 @@ All diagrams are Mermaid sources stored as `.md` files in `diagrams/`. Each chap
 
 ---
 
-*Last updated: 2026-04-13 — reflects PAI 4.0.3, OpenClaw 2026.4.x (macOS / npm global), Tasking Protocol v1.0, topic consolidation, paste-ready relay format*
+*Last updated: 2026-05-29 — reflects PAI 5.0.0 (Algorithm v6.4.0, Memory v7.6, NATIVE/ALGORITHM/MINIMAL modes + classifier, ISA-not-PRD), OpenClaw 2026.5.x (macOS / npm global), Tasking Protocol v1.2, single-agent fleet default, key-based SSH over Tailscale, paste-ready relay format*
 
 *Created by Verbum, Ben's DA*

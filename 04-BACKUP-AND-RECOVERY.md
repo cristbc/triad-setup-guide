@@ -133,6 +133,8 @@ Additionally, `{PAI-framework-dir}` syncs to `{services-machine}` as a read-only
 
 If `{PAI-machine}` is destroyed, `{services-machine}` has everything I need to rebuild.
 
+> **Security note — snapshots carry secrets.** A full `{PAI-dir}` snapshot contains live credentials (env files, secret stores, cached cookies/tokens). That means the receiving host now holds my secrets in archived form. Treat the receiving folder accordingly: restrict it to a single owner, keep the disk encrypted at rest, and prefer a secrets-manager-hydrated runtime (e.g. Bitwarden Secrets Manager via `bws run -- ...`) over plaintext `.env` files so the snapshot's blast radius is smaller. Encrypting the backup archive itself before it leaves `{PAI-machine}` is the stronger control if the receiving host is less trusted.
+
 ### Physical Media Backups
 
 For true resilience beyond the network:
@@ -221,7 +223,7 @@ Four scenarios, ordered by likelihood. Each includes the steps to get back to op
    - Recreate shared folders per the topology in `01-HOST-AND-NETWORK.md`
 
 7. **Restore Tailscale**
-   - `tailscale up --ssh` and authenticate
+   - `tailscale up` and authenticate
    - The old device will appear as offline in the Tailscale admin — remove it
    - Update any references to the old Tailscale IP if it changed
 
@@ -252,7 +254,7 @@ Four scenarios, ordered by likelihood. Each includes the steps to get back to op
 
 2. **Install prerequisites (as `admin`)**
    - Install Homebrew, then `brew install node syncthing`
-   - Install and authenticate Tailscale: `tailscale up --ssh`
+   - Install and authenticate Tailscale: `tailscale up`
    - On both user accounts: enable Remote Login (System Settings → General → Sharing)
 
 3. **Install OpenClaw (as `admin`)**
@@ -297,7 +299,7 @@ Four scenarios, ordered by likelihood. Each includes the steps to get back to op
    - Remove the old device entry on `{PAI-machine}` once the new pairing is healthy
 
 9. **Verify operational state**
-   - `curl -s http://127.0.0.1:18789/health` returns `{"ok":true,"status":"live"}` (use your own `{gateway-port}`)
+   - `curl -s http://127.0.0.1:{gateway-port}/health` returns `{"ok":true,"status":"live"}`
    - Telegram bot receives and responds
    - Heartbeat is registered: `openclaw cron list` shows it (read-only — never run this against the live gateway from automation; run it from interactive SSH only)
    - `{PAI-agent}` can reach `{OpenClaw-agent}` via the inter-agent channel
@@ -338,7 +340,7 @@ Four scenarios, ordered by likelihood. Each includes the steps to get back to op
    - Recreate shared folders: `{Sync-services-dir}`, PAI framework mirror, `{PAI-backups-dir}` mirror
 
 5. **Install Tailscale**
-   - `tailscale up --ssh` and authenticate
+   - `tailscale up` and authenticate
    - Remove old device from Tailscale admin
 
 6. **Start services**

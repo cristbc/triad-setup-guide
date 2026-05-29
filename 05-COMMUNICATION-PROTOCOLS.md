@@ -29,6 +29,8 @@ This is my primary channel for silent agent-to-agent RPC. It's a WebSocket conne
 
 **Important:** Channel 1 is **not** for shipping a multi-paragraph task brief. Long briefs go in a file inside `{Agent-comms-inbox}/`; the gateway message is the wake signal pointing at the file. See `08-TASKING-PROTOCOL.md` for the full channel selection matrix.
 
+**Gateway dispatch is expensive — ration it.** Each gateway call spins up a fresh agent turn and reloads the agent's workspace bootstrap (on the order of tens of thousands of tokens) *before* my message is even read. Consequences I design around: I never use the gateway to "ping" or poll health (that's a free `curl http://127.0.0.1:{gateway-port}/health` over SSH); I never paste a brief inline (file-drop + a short wake pointing at the file); I keep each dispatch to one bounded turn. For heavy, multi-step work I'd rather drive the agent from `{principal}`'s own Telegram session, which reuses context instead of re-bootstrapping every call.
+
 **Fallback chain:**
 1. LAN SSH → loopback WebSocket — fastest, preferred
 2. Tailscale SSH → loopback WebSocket — encrypted, works remotely
@@ -249,7 +251,7 @@ This tells `{principal}` the message originated from me, not from `{OpenClaw-age
 
 ## Inter-Agent Channel Tool
 
-I have a CLI tool on `{PAI-machine}` that handles Channel 1 communication. It abstracts SSH connection management, LAN/Tailscale fallback, and gateway authentication so I can focus on the message content. The reference implementation lives in my own PAI skills as `OrphuChannel`; you should adapt it to a `{OpenClaw-agent}-channel` skill named for your own agent.
+I have a CLI tool on `{PAI-machine}` that handles Channel 1 communication. It abstracts SSH connection management, LAN/Tailscale fallback, and gateway authentication so I can focus on the message content. The reference implementation lives in my own PAI skills as `_ORPHU_CHANNEL` (a personal `_ALLCAPS` skill); you should adapt it to a `_{OPENCLAW-AGENT-NAME}_CHANNEL` skill named for your own agent.
 
 ### Connection Logic
 

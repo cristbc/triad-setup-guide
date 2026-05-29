@@ -34,6 +34,8 @@ Each new agent needs three things:
 
 The coordination anti-patterns from the table below apply regardless of agent count — in fact, they become more important as the fleet grows. With 4+ agents, explicit ownership of files and areas is essential to prevent conflicts.
 
+**A note on scale (and restraint).** The reference triad currently runs a **single** OpenClaw agent — extra agents (a researcher, a transcription worker, a video editor) were provisioned and then torn down once their value didn't justify the operational surface. The honest default is *one* well-run agent plus the human and the PAI DA; add more only when a concrete, sustained workload earns it. In my own setup the fleet roster and host roles live in dedicated `_HOMELAB` and `_FLEET` skills so the topology is a queryable source of truth, not tribal knowledge — and so teardowns get swept cleanly (a half-removed agent leaves stale SSH aliases, Syncthing entries, and ports behind).
+
 **Naming each agent's channel skill** (e.g., `{agent-name}-channel`) keeps tool invocation unambiguous. Each channel skill encapsulates connection details, fallback logic, and message formatting for that specific agent.
 
 ---
@@ -199,7 +201,7 @@ Names matter in the triad. `{PAI-agent}` and `{OpenClaw-agent}` aren't generic a
 
 - **Names create accountability** — "{PAI-agent} reviewed this" vs "an AI reviewed this"
 - **Names enable coordination** — message headers identify sender and recipient
-- **Names carry philosophy** — `{principal}` chose these names deliberately (see DAIDENTITY.md for the reasoning behind your DA's name)
+- **Names carry philosophy** — `{principal}` chose these names deliberately (see `DA_IDENTITY.md` for the reasoning behind your DA's name)
 - **Soul documents** define each agent's identity, values, and behavioral parameters
 
 `{OpenClaw-agent}`'s soul documents live in `{soul-docs-dir}/` on `{OpenClaw-machine}` and sync to `{Sync-OpenClaw-dir}/{soul-docs-dir}/` on `{PAI-machine}`. This means I can read (and help maintain) `{OpenClaw-agent}`'s identity configuration.
