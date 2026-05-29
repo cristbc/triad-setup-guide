@@ -7,12 +7,12 @@ graph TB
     PRIN["{principal}<br/>(human)<br/><i>T0 — decision authority</i>"]
 
     subgraph PAI_HOST["{PAI-machine}"]
-        VERBUM["{PAI-agent}<br/>(Claude Code)<br/><i>T1 — orchestrator</i>"]
+        PAI["{PAI-agent}<br/>(Claude Code)<br/><i>T1 — orchestrator</i>"]
         WS_LOCAL["{Sync-OpenClaw-dir}/<br/>(Syncthing local view)"]
     end
 
     subgraph OC_HOST["{OpenClaw-machine}"]
-        ORPHU["{OpenClaw-agent}<br/>(OpenClaw daemon)<br/><i>T1 — autonomous worker</i>"]
+        OC["{OpenClaw-agent}<br/>(OpenClaw daemon)<br/><i>T1 — autonomous worker</i>"]
         WS_REMOTE["{Agent-workspace-dir}/<br/>(real workspace)"]
         INBOX["comms/inbox/<br/>{PAI-AGENT-NAME}-TO-{OPENCLAW-AGENT-NAME}-&lt;slug&gt;.md"]
         WIP["wip/&lt;slug&gt;/<br/>(active artifacts)"]
@@ -27,28 +27,28 @@ graph TB
         WS_REMOTE --- HB
     end
 
-    PRIN -->|"directs"| VERBUM
-    PRIN -.->|"DM via {telegram-bot}<br/>(Channel 3, dmPolicy=pairing)"| ORPHU
+    PRIN -->|"directs"| PAI
+    PRIN -.->|"DM via {telegram-bot}<br/>(Channel 3, dmPolicy=pairing)"| OC
 
-    VERBUM ==>|"1. write brief<br/>(durable, file-first)"| INBOX
-    VERBUM -->|"2. wake signal<br/>(ephemeral, gateway)"| ORPHU
-    ORPHU -->|"3. read brief"| INBOX
-    ORPHU -->|"4. update status"| CT
-    ORPHU ==>|"5. produce artifacts"| WIP
-    ORPHU -->|"6. archive brief<br/>after processing"| DRAFTS
-    ORPHU -.->|"7. ack to Relay topic<br/>(Channel 2)"| PRIN
+    PAI ==>|"1. write brief<br/>(durable, file-first)"| INBOX
+    PAI -->|"2. wake signal<br/>(ephemeral, gateway)"| OC
+    OC -->|"3. read brief"| INBOX
+    OC -->|"4. update status"| CT
+    OC ==>|"5. produce artifacts"| WIP
+    OC -->|"6. archive brief<br/>after processing"| DRAFTS
+    OC -.->|"7. ack to Relay topic<br/>(Channel 2)"| PRIN
 
     WS_LOCAL <==>|"Syncthing<br/>(bidirectional)"| WS_REMOTE
-    VERBUM ---|"reads via<br/>local view"| WS_LOCAL
+    PAI ---|"reads via<br/>local view"| WS_LOCAL
 
     HEARTBEAT_FIRES{"Heartbeat<br/>fires every<br/>{Heartbeat-Interval}"}
     HEARTBEAT_FIRES -->|"reads"| HB
     HEARTBEAT_FIRES -->|"intake scan"| INBOX
-    HEARTBEAT_FIRES -.->|"silent if<br/>nothing noteworthy"| ORPHU
+    HEARTBEAT_FIRES -.->|"silent if<br/>nothing noteworthy"| OC
 
     style PRIN fill:#374151,stroke:#9CA3AF,color:#F9FAFB,stroke-width:2px
-    style VERBUM fill:#1E40AF,stroke:#3B82F6,color:#F9FAFB,stroke-width:2px
-    style ORPHU fill:#7C2D12,stroke:#F97316,color:#F9FAFB,stroke-width:2px
+    style PAI fill:#1E40AF,stroke:#3B82F6,color:#F9FAFB,stroke-width:2px
+    style OC fill:#7C2D12,stroke:#F97316,color:#F9FAFB,stroke-width:2px
     style INBOX fill:#5B4A1A,stroke:#F59E0B,color:#F9FAFB
     style WIP fill:#1A3D1A,stroke:#22C55E,color:#F9FAFB
     style DRAFTS fill:#1A3D1A,stroke:#22C55E,color:#F9FAFB

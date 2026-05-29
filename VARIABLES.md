@@ -63,7 +63,7 @@ The reference triad runs every host on macOS. Other hosts (Linux, VPS) work stru
 | Variable | Purpose | Notes |
 |----------|---------|-------|
 | `{DA-Name}` | DA short name (used in config) | Same as `{PAI-agent}` |
-| `{DA-Full-Name}` | DA full name for display | e.g., "Verbum - Personal AI" |
+| `{DA-Full-Name}` | DA full name for display | e.g., "<DA-Name> - Personal AI" |
 | `{DA-Display-Name}` | DA display name | Same as `{DA-Name}` typically |
 | `{DA-Color}` | DA display color | Hex code like `#3B82F6` |
 | `{Voice-Id}` | ElevenLabs voice ID for DA | Get from ElevenLabs dashboard |

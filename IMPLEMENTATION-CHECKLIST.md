@@ -108,7 +108,7 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 
 **Read:** `05-COMMUNICATION-PROTOCOLS.md`
 
-- [ ] Install inter-agent channel tool on `{PAI-machine}` (adapt the `_ORPHU_CHANNEL` reference skill for your `{OpenClaw-agent}`)
+- [ ] Install inter-agent channel tool on `{PAI-machine}` (adapt the reference `_{OPENCLAW-AGENT-NAME}_CHANNEL` skill for your `{OpenClaw-agent}`)
 - [ ] Configure gateway token in channel tool
 - [ ] Configure gateway token in OpenClaw gateway (`~/.openclaw/openclaw.json`)
 - [ ] Configure SSH alias for `{OpenClaw-agent-lowercase}@{OpenClaw-machine}` with LAN→Tailscale fallback
@@ -199,7 +199,7 @@ A step-by-step guide for a receiving PAI agent (or human) to stand up the full t
 | Security patterns | `{PAI-dir}/hooks/security/` (inspectors) + `{PAI-dir}/USER/SECURITY/PATTERNS.yaml` (your patterns) | 03 |
 | PAI backup | macOS LaunchAgent → daily snapshot to `{PAI-backups-dir}` | 04 |
 | OpenClaw backup | `openclaw backup create --verify` → weekly LaunchAgent on `{OpenClaw-machine}` | 04 |
-| Channel tool | A skill on `{PAI-machine}` (adapted from `_ORPHU_CHANNEL` reference) | 05 |
+| Channel tool | A skill on `{PAI-machine}` (adapted from the `_{OPENCLAW-AGENT-NAME}_CHANNEL` reference) | 05 |
 | Gateway token | `~/.openclaw/openclaw.json` on `{OpenClaw-machine}` and the channel tool's secret store on `{PAI-machine}` | 05 / 07 |
 | Telegram topic IDs | Stored as `{Telegram-Topic-Relay/Ops/Alerts}` in your VARIABLES.md (private) | 05 |
 | Identity files (SOUL/IDENTITY/MEMORY/USER) | Inside `{Agent-workspace-dir}/` on `{OpenClaw-machine}` | 07 |

@@ -251,7 +251,7 @@ This tells `{principal}` the message originated from me, not from `{OpenClaw-age
 
 ## Inter-Agent Channel Tool
 
-I have a CLI tool on `{PAI-machine}` that handles Channel 1 communication. It abstracts SSH connection management, LAN/Tailscale fallback, and gateway authentication so I can focus on the message content. The reference implementation lives in my own PAI skills as `_ORPHU_CHANNEL` (a personal `_ALLCAPS` skill); you should adapt it to a `_{OPENCLAW-AGENT-NAME}_CHANNEL` skill named for your own agent.
+I have a CLI tool on `{PAI-machine}` that handles Channel 1 communication. It abstracts SSH connection management, LAN/Tailscale fallback, and gateway authentication so I can focus on the message content. The reference implementation lives in my own PAI skills as a personal `_ALLCAPS` channel skill (named `_{OPENCLAW-AGENT-NAME}_CHANNEL` — substitute your own agent's name); adapt it for your own agent.
 
 ### Connection Logic
 

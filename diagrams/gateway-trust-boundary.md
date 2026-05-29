@@ -5,10 +5,10 @@ Embed in `07-OPENCLAW-APPENDIX.md` near the start of "Section 3: Gateway Service
 ```mermaid
 graph TB
     subgraph PAI_HOST["{PAI-machine}"]
-        VERBUM["{PAI-agent}<br/>(Claude Code)"]
+        PAI["{PAI-agent}<br/>(Claude Code)"]
         CLI["{InterAgent-Tool}<br/>(channel CLI)"]
         SSH_CLIENT["OpenSSH client<br/>(Match exec resolves<br/>LAN→Tailscale)"]
-        VERBUM --> CLI
+        PAI --> CLI
         CLI --> SSH_CLIENT
     end
 
@@ -35,7 +35,7 @@ graph TB
     EVIL["Anyone else<br/>(LAN attacker, internet,<br/>other user on host)"]
     EVIL -.->|"BLOCKED:<br/>no LAN port,<br/>no Tailscale port,<br/>no other user has<br/>the SSH key"| LOOP
 
-    style VERBUM fill:#1E40AF,stroke:#3B82F6,color:#F9FAFB
+    style PAI fill:#1E40AF,stroke:#3B82F6,color:#F9FAFB
     style CLI fill:#1E40AF,stroke:#3B82F6,color:#F9FAFB
     style SSH_CLIENT fill:#1F2937,stroke:#6B7280,color:#F9FAFB
     style T fill:#3D1A5B,stroke:#A855F7,color:#F9FAFB
