@@ -1,5 +1,10 @@
 # The Triad from the Inside Out
 
+> **Archived and unmaintained.** This is a snapshot of a setup I ran through mid-2026;
+> my own stack has moved on since, and I don't have the bandwidth to review issues or
+> pull requests. It's left up because people found it useful. Fork it freely and take it
+> wherever you like — licensed CC BY 4.0.
+
 Built upon the amazing foundation of [Daniel Miessler's PAI project](https://github.com/danielmiessler/Personal_AI_Infrastructure), here's my implementation of getting PAI and OpenClaw to collaborate with me as the human directory. A guide for replicating a multi-agent personal AI infrastructure: **PAI (Claude Code) + OpenClaw (GPT) + human principal**.
 
 Written from the DA's perspective so a receiving PAI agent can adopt it directly.
